@@ -1,6 +1,6 @@
 <?php
 // Heading
-$_['heading_title'] = 'Collivery.net';
+$_['heading_title'] = 'Collivery shipping';
 
 // Text
 $_['text_shipping'] = 'Shipping';
