@@ -155,9 +155,7 @@
                         <label class="col-sm-2 control-label" for="input-demo"> <span data-toggle="tooltip">{{ entry_default_collection_address }}</span> </label>
                         <div class="col-sm-10">
                             <select class="form-control" name="default_address_id" id="input-demo">
-                                {% for address_id, address in default_collivery_from_addresses %}
-                                    <option {{ address_id == default_address_id ? 'selected' : ''}} value="{{ address_id }}">{{ address.nice_address }}</option>
-                                {% endfor %}
+                                <option selected value="{{ mds_default_address.id }}">{{ mds_default_address.text }}</option>
                             </select>
                         </div>
                     </div>
