@@ -20,6 +20,21 @@
 class ControllerExtensionShippingMds extends Controller {
     private $error = array();
 
+    protected $accessToken = '';
+    protected $userName = null;
+    protected $userId = null;
+
+    const VERSION = 'v3';
+    const APP_PLUGIN_NAME = 'collivery.net opencart plugin';
+    const ENDPOINT_LOGIN = 'login';
+    const ENDPOINT_SERVICE_TYPES = 'service_types';
+    const ENDPOINT_DEFAULT_ADDRESS = 'default_address';
+    const SANDBOX_USERNAME = 'demo@collivery.co.za';
+    const SANDBOX_PASSWORD = 'demo';
+
+    const USERNAME = 'shipping_mds_username';
+    const PASSWORD = 'shipping_mds_password';
+
     public function index() {
         $this->load->language('extension/shipping/mds');
         $this->load->model('setting/event');
@@ -233,5 +248,142 @@ class ControllerExtensionShippingMds extends Controller {
                 unlink($file);
             }
         }
+    }
+
+    /**
+     * @param $key
+     * @param null $default
+     * @param bool $checkbox
+     * @return string|int|null
+     */
+    protected function getSettingValue($key, $default = null, $checkbox = true) {
+        if ($checkbox) {
+            if ($this->request->server['REQUEST_METHOD'] == 'POST'
+                && isset($this->request->post[$key])
+                && !empty($this->request->post[$key])) {
+                return $this->request->post[$key];
+            }
+        }
+        if ($this->config->has($key)) {
+            return $this->config->get($key);
+        }
+        return $default;
+    }
+
+    /** authenticate user
+     * @return object|null
+     * source https://collivery.net/integration/api/v3/#1-authentication
+     */
+    protected function attempt()
+    {
+        return $this->makeApiRequest('post',self::ENDPOINT_LOGIN, array(
+            'email' =>  $this->getSettingValue(self::USERNAME, self::SANDBOX_USERNAME),
+            'password' => $this->getSettingValue(self::PASSWORD, self::SANDBOX_PASSWORD)
+        ));
+    }
+
+    /**
+     * set token and username
+     */
+    protected function setUserApiAccessToken()
+    {
+        // TODO: try to get data from cache
+        if ($result = $this->attempt()) {
+            $this->accessToken =  $result->api_token;
+            $this->userName =  $result->email_address;
+            $this->userId =  $result->id;
+        }
+    }
+
+    /**
+     * Get client access.
+     * @return string
+     */
+    protected function token()
+    {
+        return $this->accessToken;
+    }
+
+    /**
+     * get api services
+     *  source https://collivery.net/integration/api/v3/#11-service-types
+     * @return array
+     */
+    protected function getServices()
+    {
+        $result = array();
+        if (count($services = $this->get(self::ENDPOINT_SERVICE_TYPES))) {
+            foreach ($services as $index => $service) {
+                $result[$service->id] = $service->text;
+            }
+        }
+        return $result;
+    }
+
+    /**
+     * @param $endpoint
+     * @param array $data
+     * @return object|null
+     */
+    private function get($endpoint, $data = array())
+    {
+        return $this->makeApiRequest('get', $endpoint,
+            array_merge(['api_token' => $this->token()], $data));
+    }
+    /**
+     * Make api request
+     * @param $type
+     * @param $endpoint
+     * @param $data
+     * @return object|null
+     */
+    private function makeApiRequest($type, $endpoint, $data)
+    {
+        $http = $this->httpRequest();
+
+        $http->setHeader('Content-type', 'application/json')
+            ->setHeader('X-App-Name', self::APP_PLUGIN_NAME)
+            ->setHeader('X-App-Version', self::VERSION)
+            ->setHeader('X-App-Host', $_SERVER['HTTP_HOST'])
+            ->setHeader('X-App-Lang', 'php');
+
+        // parse json
+        $http->setJsonDecoder();
+
+        switch ($type) {
+            case 'post':
+                $result = $http->post($endpoint, $data);
+                break;
+            default:
+                $result = $http->get($endpoint, $data);
+                break;
+        }
+
+        if ($http->isCurlError()) {
+            $this->error['warning'] = $http->getCurlErrorMessage();
+        }
+
+        if ($http->isHttpError() && $result !== null) {
+            $this->error['warning'] =  $result->error->message;
+        }
+
+        if (empty($result)) {
+            $this->error['warning'] =  'An unknown error occurred. Please try again';
+        }
+
+        if (isset($result->data)) {
+            return $result->data;
+        }
+    }
+
+
+    /**
+     * @return mdsHttpRequest
+     */
+    private function httpRequest()
+    {
+        $this->load->library('Collivery');
+
+        return $this->collivery->requestApi();
     }
 }
