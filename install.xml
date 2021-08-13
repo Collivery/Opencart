@@ -258,13 +258,19 @@
             if($validated_collivery_data){
                 $data['quote_data'] = $validated_collivery_data;
                 $check = $this->db->query('select waybill_id from ' .DB_PREFIX . 'order where order_id="' . $data_object->order_id . '"')->row['waybill_id'];
-                if(!$check){
-                    $waybill_id = $this->collivery->addCollivery($validated_collivery_data);
-                    if($waybill_id){
+                if(!$check) {
+                    try {
+                        $waybill_id = $this->collivery->addCollivery($validated_collivery_data);
                         $this->db->query('update ' .DB_PREFIX . "order set `collivery_price_data`='". json_encode($validated_collivery_data)."', waybill_id='" . $waybill_id . "' where order_id='" . $data_object->order_id . "'");
                         if($this->config->get('shipping_mds_auto_accept_waybill')){
                             $this->collivery->acceptCollivery($waybill_id);
                         }
+                    } catch (\Mds\ColliveryException $e) {
+                        $this->response->addHeader($this->request->server['SERVER_PROTOCOL'] . '/1.1 400 Bad Request');
+                        $this->response->addHeader('Content-Type: application/json');
+                        $this->response->setOutput(json_encode(['errors' => $e->getMessage()]));
+
+                        return;
                     }
                 }
             }

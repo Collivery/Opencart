@@ -986,13 +986,17 @@ class Collivery
             $errors['invalid_data'] = 'Invalid service.';
         }
         if ($errors) {
-            return $this->setError($errors);
+            $this->setError($errors);
         }
 
         $result = $this->sendSoapRequest('add_collivery', [$data]);
 
         if (isset($result['error_id'])) {
-            return $this->setError($result['error_id'], $result['error']);
+            $this->setError($result['error_id'], $result['error']);
+        }
+
+        if (!empty($this->errors)) {
+            throw new \Mds\ColliveryException(implode($this->getErrors()));
         }
 
         return $result['collivery_id'];
