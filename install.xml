@@ -152,14 +152,6 @@
     <file path="catalog/controller/checkout/guest.php">
         <operation>
             <search>
-                <![CDATA[$custom_fields = $this->model_account_custom_field->getCustomFields($customer_group_id);]]>
-            </search>
-            <add position="replace">
-                <![CDATA[$custom_fields = $this->model_account_custom_field->getCustomFields();]]>
-            </add>
-        </operation>
-        <operation>
-            <search>
                 <![CDATA[$this->session->data['shipping_address']['zone_id'] = $this->request->post['zone_id'];]]>
             </search>
             <add position="replace">
