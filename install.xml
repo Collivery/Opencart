@@ -711,67 +711,84 @@
             </search>
             <add position="replace">
                 <![CDATA[
-                var colliveryElements = $(document).find('[name="shipping_collivery_town"], [name="shipping_collivery_suburb"], [name="shipping_collivery_location_type"]');
-                      var errors = [];
-                      colliveryElements.each(function() {
-                            if(!$(this).val()){
-                                alert('Please select Town, Suburb and Location Type');
-                              errors.push(`${$(this).attr('name')} missing!`);
-                            }
-                       });
-                      if(!errors.length){
-                        $.ajax({
-                              url : `index.php?route=sale/order/createColliveryAddress&user_token=${window.user_token}&order_id={{ order_id }}`,
-                              method:'post',
-                              dataType: 'json',
-                              data : $('#tab-shipping').find('select, textarea, input').serialize()
-                            }).done(function(response){
-                                var { waybill_id : waybill_id, waybill_status : waybill_status, waybill_service : waybill_service, collivery_from : collivery_from, collivery_to : collivery_to, delivery_date : delivery_date } = response,
-             html = `
-              <div class="row">
-                          <div class="col-md-4 text-left">
-                              <h4>
-                                  Waybill No: ${ waybill_id } <b></b>
-                              </h4>
-                          </div>
-                          <div class="col-md-4 text-center">
-                              <h4>
-                                  Service Type: ${ waybill_service }<b></b>
-                              </h4>
-                          </div>
-                          <div class="col-md-4 text-right">
-                              <h4>
-                                  Delivery Date : ${ delivery_date }<b></b>
-                              </h4>
-                          </div>
-                      </div>
-                     <div class="row">
-                      <div class="col-md-12">
-                          <table class="table table-bordered">
-                              <tbody>
-                              <tr>
-                                  <td colspan="8" class="text-center text-uppercase bg-info">Collivery Information</td>
-                              </tr>
-                              <tr>
-                                  <td width="50%" class="text-center"><b>Collection Address</b></td>
-                                  <td width="50%" class="text-center"><b>Delivery Address</b></td>
-                              </tr>
-                              <tr>
-                                  <td>${ collivery_from }</td>
-                                  <td>${ collivery_to }</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                      </div>
-                  </div>
-            `;
+                var url = (new URL(window.location.href));
+var user_token = user_token || url.searchParams.get('user_token');
+                var colliveryElements = $(document)
+                  .find('[name="shipping_collivery_town"], [name="shipping_collivery_suburb"], [name="shipping_collivery_location_type"]');
+                var errors = [];
+                colliveryElements.each(function () {
+                  if (!$(this).val()) {
+                    alert('Please select Town, Suburb and Location Type');
+                    errors.push($(this).attr('name')+' missing!');
+                  }
+                });
+                if (!errors.length) {
+                  $.ajax({
+                    url: 'index.php?route=sale/order/createColliveryAddress&user_token='+user_token+'&order_id={{ order_id }}',
+                    method: 'post',
+                    dataType: 'json',
+                    data: $('#tab-shipping').find('select, textarea, input').serialize()
+                  })
+                  .done(function (response) {
+                    var waybill_id = response.waybill_id;
+                    var waybill_service = response.waybill_service;
+                    var collivery_from = response.collivery_from;
+                    var collivery_to = response.collivery_to;
+                    var delivery_date = response.delivery_dat;
+                    var html = '<div class="row">' +
+                        '  <div class="col-md-4 text-left">' +
+                        '      <h4>' +
+                        '          Waybill No: ' + waybill_id + ' <b></b>' +
+                        '      </h4>' +
+                        '  </div>' +
+                        '  <div class="col-md-4 text-center">' +
+                        '      <h4>' +
+                        '          Service Type: ' + waybill_service + '<b></b>' +
+                        '      </h4>' +
+                        '  </div>' +
+                        '  <div class="col-md-4 text-right">' +
+                        '      <h4>' +
+                        '          Delivery Date : ' + delivery_date + '<b></b>' +
+                        '      </h4>' +
+                        '    </div>' +
+                        '</div>' +
+                        '<div class="row">' +
+                        '  <div class="col-md-12">' +
+                        '    <table class="table table-bordered">' +
+                        '      <tbody>' +
+                        '        <tr>' +
+                        '          <td colspan="8" class="text-center text-uppercase bg-info">Collivery Information</td>' +
+                        '        </tr>' +
+                        '        <tr>' +
+                        '          <td width="50%" class="text-center"><b>Collection Address</b></td>' +
+                        '          <td width="50%" class="text-center"><b>Delivery Address</b></td>' +
+                        '        </tr>' +
+                        '        <tr>' +
+                        '          <td>' + collivery_from + '</td>' +
+                        '          <td>' + collivery_to + '</td>' +
+                        '        </tr>' +
+                        '      </tbody>' +
+                        '    </table>' +
+                        '  </div>' +
+                        '</div>';
+                    $(document).find('#sub-tab-mds').html(html);
+                  })
+                  .fail(function(jqXHR, textStatus, errorThrown ) {
+                    console.error(jqXHR, textStatus, errorThrown);
 
-                $(document).find('#sub-tab-mds').html(html);
-                }).always(function(){
+                    // The web server (apache, haproxy) returned an error page
+                    if (jqXHR.responseText.substr(0,1) === '<') {
+                      alert('Server error, please check error logs');
+                    } else {
+                      var text = JSON.parse(jqXHR.responseText);
+                      alert(text.errors);
+                    }
+                  })
+                  .always(function () {
                     $('a[href="#tab-mds"]').tab('show');
                     $('#button-shipping-address').button('reset');
-                });
-            }
+                  });
+                }
 
                 ]]>
             </add>
@@ -864,7 +881,7 @@
       </div>
       <div class="row">
          <div class="col-md-12">
-          {% if is_mds and waybill_status == 1 %} }}
+          {% if is_mds and waybill_status == 1 %}
             <button class="btn btn-success" id="accept-waybill">Accept Waybill (start shipping)</button>
           {% else %}
             <table class="table table-striped">
@@ -933,30 +950,36 @@
             <add position="after">
                 <![CDATA[
                 <script type="text/javascript">
-                    $(document)
-                    .on('change', '[name="collivery_town"]', function(){
-                        var elem = $(this);
-                        var townId = elem.val();
-                        $(document).find('[name="city"]').val(elem.find('option:selected').text());
-                        var url = `index.php?route=checkout/checkout/getTownSuburbs&town_id=${townId}`;
-                        $.get(url)
-                            .done(function(response){
-                                if($(response).attr('value') !== 'auth'){
-                                   $('[name="collivery_suburb"]').empty().html(response);
-                                }else if(!$(document).find('#collivery-alert').length){
-                                    $('fieldset').prepend(`
-                                        <div id="collivery-alert" class="alert alert-danger">
-                                          <strong>Collivery.net</strong> Please contact admin to fix Collivery.net shipping extension.
-                                        </div>`);
-                                        console.error('Collivery Shipping Plugin Could Not Authenticate');
-                                }
-                            }).fail(function(xhr, ajaxOptions, thrownError) {
-                                alert('Collivery suburbs could not be found!');
-                                console.log('Could not find collivery suburb, please check if this plugin is installed properly');
-                            });
-                    }).ready(function(){
-                          $(document).find('[name="city"]').closest('.form-group').attr('hidden', true)
-                    });
+                   $(document)
+                .on('change', '[name="collivery_town"]', function() {
+                  var elem = $(this);
+                  var townId = elem.val();
+                  $(document).find('[name="city"]')
+                    .val(elem.find('option:selected').text());
+
+                  var url = 'index.php?route=checkout/checkout/getTownSuburbs&town_id='+townId;
+                  $.get(url)
+                  .done(function(response){
+                    if($(response).attr('value') !== 'auth'){
+                      $('[name="collivery_suburb"]').empty().html(response);
+                    } else if(!$(document).find('#collivery-alert').length){
+                      $('fieldset').prepend('<div id="collivery-alert" class="alert alert-danger"><strong>Collivery.net</strong> Please contact admin to fix Collivery.net shipping extension.</div>');
+                      console.error('Collivery Shipping Plugin Could Not Authenticate');
+                    }
+                  }).fail(function(jqXHR, textStatus, errorThrown ) {
+                    console.error(jqXHR, textStatus, errorThrown);
+
+                    // The web server (apache, haproxy) returned an error page
+                    if (jqXHR.responseText.substr(0,1) === '<') {
+                      alert('Server error, please check error logs');
+                    } else {
+                      var text = JSON.parse(jqXHR.responseText);
+                      alert(text.errors);
+                    }
+                  });
+                }).ready(function(){
+                  $(document).find('[name="city"]').closest('.form-group').attr('hidden', true)
+                });
                 </script>
                 ]]>
             </add>
@@ -1091,159 +1114,185 @@
             </search>
             <add position="after">
                 <![CDATA[
+                <script>
+                    var url = (new URL(window.location.href));
+                    var user_token = url.searchParams.get('user_token');
+                    $(document)
+                    .ready(function(){
+                      ['collivery_town', 'collivery_suburb', 'collivery_location_type'].map(function(item){
+                        var select = $(document).find('select[name="shipping_'+item+'"]'), option;
+                        if(item === 'collivery_town'){
+                          option = select.find("[value='{{ collivery_town }}']");
+                        }else if(item === 'collivery_suburb'){
+                          option = select.find("[value='{{ collivery_suburb }}']");
+                        }else{
+                          option = select.find("[value='{{ collivery_location_type }}']");
+                        }
+                        if(option){
+                          if(option.length){
+                            option.prop('selected', true);
+                          }else if(!option.length && item === 'collivery_suburb'){
+                            select.empty();
+                          }
+                        }
+                        $(document)
+                          .find('[name="payment_'+item+'"]')
+                          .closest('div.form-group.custom-field')
+                          .remove();
+                      });
+                      $('#input-shipping-city').closest('div.form-group').prop('hidden', 'hidden');
+                    })
+                    .on('click', '#dispatched-collivery-button', function(a){
+                      a.preventDefault();
+                      var order = url.searchParams.get('order_id');
+                      var from = $('[name="collection_shipping_address_id"]').val();
+                      var to = $('[name="delivery_shipping_address_id"]').val();
+                      $.getJSON('index.php?route=sale/order/createCollivery&user_token='+user_token+'&order='+order+'&to='+to+'&from='+from)
+                      .done(function(response){})
+                      .fail(function(jqXHR, textStatus, errorThrown ) {
+                        console.error(jqXHR, textStatus, errorThrown);
 
-<script>
-    var Url = (new URL(window.location.href));
-    var user_token = Url.searchParams.get('user_token');
-    $(document)
-    .ready(function(){
-      (function(fields){
-        fields.map(function(item){
-          var select = $(document).find(`select[name="shipping_${item}"]`), option;
-          if(item === 'collivery_town'){
-            option = select.find("[value='{{ collivery_town }}']");
-          }else if(item === 'collivery_suburb'){
-            option = select.find("[value='{{ collivery_suburb }}']");
-          }else{
-            option = select.find("[value='{{ collivery_location_type }}']");
-          }
-          if(option){
-            if(option.length){
-              option.prop('selected', true);
-            }else if(!option.length && item === 'collivery_suburb'){
-              select.empty();
-            }
-          }
-          $(document)
-            .find(`[name="payment_${item}"]`)
-                .closest('div.form-group.custom-field')
-                    .remove();
-        });
-        $('#input-shipping-city').closest('div.form-group').prop('hidden', 'hidden');
-      })(['collivery_town', 'collivery_suburb', 'collivery_location_type']);
-    })
-    .on('click', '#dispatched-collivery-button', function(a){
-    a.preventDefault();
-    var order = Url.searchParams.get('order_id');
-    var from = $('[name="collection_shipping_address_id"]').val();
-    var to = $('[name="delivery_shipping_address_id"]').val();
-    $.getJSON(`index.php?route=sale/order/createCollivery&user_token=${window.user_token}&order=${order}&to=${to}&from=${from}`).done(function(response){
-    })
-    })
-    {% if not (waybill_id or waybill_status == 1) %}
-    .on('click', '#accept-waybill', function(a){
-        a.preventDefault();
-      $('#confirm-accept-price-and-create-waybill').modal('show');
-    })
-    .on('click', '#yes-accept-collivery', function(a){
-      $.ajax(`index.php?route=sale/order/acceptAndCreateWaybill&user_token=${window.user_token}&order_id={{ order_id }}`).done(function(){
-        window.location.reload(true);
-      })
-    })
-    {% endif %}
-    .on('click', '.continue-to-mds-tabg', function(a){
-        $('a[href="#tab-mds"]').tab('show');
-    })
-    .on('change', '[name="shipping_collivery_town"]', function(){
-    var elem = $(this);
-      var townId = elem.val();
-      $('[name="shipping_collivery_suburb"]').empty();
+                        // The web server (apache, haproxy) returned an error page
+                        if (jqXHR.responseText.substr(0,1) === '<') {
+                          alert('Server error, please check error logs');
+                        } else {
+                          var text = JSON.parse(jqXHR.responseText);
+                          alert(text.errors);
+                        }
+                      })
+                    })
+                    {% if not (waybill_id or waybill_status == 1) %}
+                    .on('click', '#accept-waybill', function(a){
+                      a.preventDefault();
+                      $('#confirm-accept-price-and-create-waybill').modal('show');
+                    })
+                    .on('click', '#yes-accept-collivery', function(a){
+                      $.ajax('index.php?route=sale/order/acceptAndCreateWaybill&user_token='+user_token+'&order_id={{ order_id }}')
+                      .done(function(){
+                        window.location.reload(true);
+                      })
+                      .fail(function(jqXHR, textStatus, errorThrown ) {
+                        console.error(jqXHR, textStatus, errorThrown);
 
-      var city = $('#input-shipping-city');
+                        // The web server (apache, haproxy) returned an error page
+                        if (jqXHR.responseText.substr(0,1) === '<') {
+                          alert('Server error, please check error logs');
+                        } else {
+                          var text = JSON.parse(jqXHR.responseText);
+                          alert(text.errors);
+                        }
+                      })
+                    })
+                    {% endif %}
+                    .on('click', '.continue-to-mds-tab', function(){
+                      $('a[href="#tab-mds"]').tab('show');
+                    })
+                    .on('change', '[name="shipping_collivery_town"]', function(){
+                      var elem = $(this);
+                      var townId = elem.val();
+                      $('[name="shipping_collivery_suburb"]').empty();
 
-      city.closest('div.form-group').prop('hidden', 'hidden');
+                      var city = $('#input-shipping-city');
 
-      city.val(elem.find('option:selected').text());
+                      city.closest('div.form-group').prop('hidden', 'hidden');
 
-      $.ajax({
-        url: `{{ constant('HTTP_CATALOG') }}index.php?route=checkout/checkout/getTownSuburbs&town_id=${townId}`,
-        type: 'get',
-        success: function(respond) {
-          $('[name="shipping_collivery_suburb"]').html(respond);
-        },
-        error: function(xhr, ajaxOptions, thrownError) {
-          console.log(thrownError);
-          console.log('Could not find collivery suburb, please check if this plugin is installed properly');
-        }
-      });
-    }).on('change', '[name="payment_collivery_town"]', function(){
-      var townId = $(this).val();
-      $('[name="payment_collivery_suburb"]').empty();
-      $.ajax({
-        url: `{{ constant('HTTP_CATALOG') }}index.php?route=checkout/checkout/getTownSuburbs&town_id=${townId}`,
-        type: 'get',
-        success: function(respond) {
-          $('[name="payment_collivery_suburb"]').html(respond);
-        },
-        error: function(xhr, ajaxOptions, thrownError) {
-          console.log(thrownError);
-          console.log('Could not find collivery suburb, please check if this plugin is installed properly');
-        }
-      });
-    })
-    .on('click', '#button-mds-shipping', function(){
-        $('a[href=\'#tab-total\']').tab('show');
-    })
-    .on('click', '#yes-create-mds-address', function(){
-        var url = `index.php?route=sale/order/createColliveryAddress&user_token=${window.user_token}&order_id={{ order_id }}`;
+                      city.val(elem.find('option:selected').text());
 
-        $.ajax({
-          url : url,
-          method:'post',
-          dataType: 'json',
-          data : $('#tab-shipping').find('select, textarea, input').serialize()
-        }).done(function(response){
-            var waybill_id = response.waybill_id;
-            var waybill_status = '';
-            var waybill_service = '';
-            var collivery_from = response.collivery_from;
-            var collivery_to = response.collivery_to;
-            var html = `
-              <div class="row">
-                          <div class="col-md-4 text-left">
-                              <h4>
-                                  Waybill No: ${ waybill_id } <b></b>
-                              </h4>
-                          </div>
-                          <div class="col-md-4 text-center">
-                              <h4>
-                                  Service Type: ${ waybill_service }<b></b>
-                              </h4>
-                          </div>
-                          <div class="col-md-4 text-right">
-                              <h4>
-                                  Waybill Status: ${ waybill_status }<b></b>
-                              </h4>
-                          </div>
-                      </div>
-                     <div class="row">
-                      <div class="col-md-12">
-                          <table class="table table-bordered">
-                              <tbody>
-                              <tr>
-                                  <td colspan="8" class="text-center text-uppercase bg-info">Collivery Information</td>
-                              </tr>
-                              <tr>
-                                  <td width="50%" class="text-center"><b>Collection Address</b></td>
-                                  <td width="50%" class="text-center"><b>Delivery Address</b></td>
-                              </tr>
-                              <tr>
-                                  <td width="50%">${ collivery_from }</td>
-                                  <td width="50%">${ collivery_to }</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                      </div>
-                  </div>
-            `;
+                      $.ajax({
+                        url: '{{ constant("HTTP_CATALOG") }}index.php?route=checkout/checkout/getTownSuburbs&town_id='+townId,
+                        type: 'get',
+                        success: function(respond) {
+                          $('[name="shipping_collivery_suburb"]').html(respond);
+                        },
+                        error: function(xhr, ajaxOptions, thrownError) {
+                          console.log(thrownError);
+                          alert('Could not find collivery suburb, please check if this plugin is installed properly');
+                        }
+                      });
+                    }).on('change', '[name="payment_collivery_town"]', function(){
+                      var townId = $(this).val();
+                      $('[name="payment_collivery_suburb"]').empty();
+                      $.ajax({
+                        url: '{{ constant("HTTP_CATALOG") }}index.php?route=checkout/checkout/getTownSuburbs&town_id='+townId,
+                        type: 'get',
+                        success: function(respond) {
+                          $('[name="payment_collivery_suburb"]').html(respond);
+                        },
+                        error: function(xhr, ajaxOptions, thrownError) {
+                          console.log(thrownError);
+                          alert('Could not find collivery suburb, please check if this plugin is installed properly');
+                        }
+                      });
+                    })
+                    .on('click', '#button-mds-shipping', function(){
+                      $('a[href=\'#tab-total\']').tab('show');
+                    })
+                    .on('click', '#yes-create-mds-address', function(){
+                      var url = 'index.php?route=sale/order/createColliveryAddress&user_token='+user_token+'&order_id={{ order_id }}';
 
-            $(document).find('#sub-tab-mds').html(html);
-            $('a[href=\'#tab-mds\']').tab('show');
+                  $.ajax({
+                    url : url,
+                    method:'post',
+                    dataType: 'json',
+                    data : $('#tab-shipping').find('select, textarea, input').serialize()
+                  }).done(function(response){
+                    var waybill_id = response.waybill_id;
+                    var waybill_service = '';
+                    var collivery_from = response.collivery_from;
+                    var collivery_to = response.collivery_to;
+                    var html = '<div class="row">' +
+                      '  <div class="col-md-4 text-left">' +
+                      '      <h4>' +
+                      '          Waybill No: ' + waybill_id + ' <b></b>' +
+                      '      </h4>' +
+                      '  </div>' +
+                      '  <div class="col-md-4 text-center">' +
+                      '      <h4>' +
+                      '          Service Type: ' + waybill_service + '<b></b>' +
+                      '      </h4>' +
+                      '  </div>' +
+                      '  <div class="col-md-4 text-right">' +
+                      '      <h4>' +
+                      '          Delivery Date : ' + delivery_date + '<b></b>' +
+                      '      </h4>' +
+                      '    </div>' +
+                      '</div>' +
+                      '<div class="row">' +
+                      '  <div class="col-md-12">' +
+                      '    <table class="table table-bordered">' +
+                      '      <tbody>' +
+                      '        <tr>' +
+                      '          <td colspan="8" class="text-center text-uppercase bg-info">Collivery Information</td>' +
+                      '        </tr>' +
+                      '        <tr>' +
+                      '          <td width="50%" class="text-center"><b>Collection Address</b></td>' +
+                      '          <td width="50%" class="text-center"><b>Delivery Address</b></td>' +
+                      '        </tr>' +
+                      '        <tr>' +
+                      '          <td>' + collivery_from + '</td>' +
+                      '          <td>' + collivery_to + '</td>' +
+                      '        </tr>' +
+                      '      </tbody>' +
+                      '    </table>' +
+                      '  </div>' +
+                      '</div>';
 
+                    $(document).find('#sub-tab-mds').html(html);
+                    $('a[href=\'#tab-mds\']').tab('show');
+                  })
+                  .fail(function(jqXHR, textStatus, errorThrown ) {
+                    console.error(jqXHR, textStatus, errorThrown);
 
-        });
-    })
-</script>
+                    // The web server (apache, haproxy) returned an error page
+                    if (jqXHR.responseText.substr(0,1) === '<') {
+                      alert('Server error, please check error logs');
+                    } else {
+                      var text = JSON.parse(jqXHR.responseText);
+                      alert(text.errors);
+                    }
+                  });
+                });
+                </script>
                 ]]>
             </add>
         </operation>
