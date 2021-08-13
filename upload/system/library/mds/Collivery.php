@@ -219,22 +219,7 @@ class Collivery
 
             return;
         }
-        if (property_exists($this, 'log')) {
-
-            try {
-                $reflectionClass = new \ReflectionClass($this->log);
-                $message = "collivery_net_error: {$message}"; //message to be logged
-
-                foreach (['write', 'message'] as $method) {
-                    if ($reflectionClass->hasMethod($method)) {
-                        $this->log->{$method}($message);
-                        break; //exit
-                    }
-                }
-            } catch (\ReflectionException $e) {
-                die($e->getMessage());
-            }
-        }
+        $this->log->write("collivery_net_error: {$message}");
     }
     /**
      * @param $key
@@ -1180,7 +1165,7 @@ class Log
     /**
      * @param $message
      */
-    public function message($message)
+    public function write($message)
     {
         chmod($this->logPath, 0777);
         file_put_contents($this->logPath . '/collivery.net_error_logs' . date('Ymd') . '.log', "{$message}\n",
