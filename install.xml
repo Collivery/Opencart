@@ -221,7 +221,22 @@
                 $address_data['phone'] = $order_object->telephone;
                 $address_data['email'] = $order_object->email;
 
-                list('address_id' => $address_id, 'contact_id' => $contact_id) = $this->collivery->addAddress($address_data);
+                $results = $this->collivery->addAddress($address_data);
+
+                if (!isset($results['address_id'])) {
+                    $output = "";
+                    foreach((array) $results['errors'] as $error) {
+                        $output .= $error.PHP_EOL;
+                    }
+
+                    $this->response->addHeader($this->request->server['SERVER_PROTOCOL'] . '/1.1 400 Bad Request');
+                    $this->response->addHeader('Content-Type: application/json');
+                    $this->response->setOutput(json_encode(['errors' => $output]));
+
+                    return;
+                }
+
+                list('address_id' => $address_id, 'contact_id' => $contact_id) = $results;
                 $this->db->query('update ' .DB_PREFIX . 'order set collivery_town="'. $address_data['town_id']. '", collivery_suburb="'. $address_data['suburb_id']. '", collivery_location_type="'. $address_data['location_type']. '", collivery_to_address_id="' . $address_id .'", collivery_to_contact_id="' . $contact_id . '" where order_id="' . $order_object->order_id . '"');
             }
             $this->acceptAndCreateWaybill($order_id);
@@ -295,8 +310,8 @@
         $response['collivery_from'] = $this->collivery->getAddress($data['collivery_from_address_id'])['nice_address'];
         $response['collivery_to'] = $this->collivery->getAddress($data['collivery_to_address_id'])['nice_address'];
 
-        header('Content-Type: application/json');
-        echo json_encode($response);
+        $this->response->addHeader('Content-Type: application/json');
+        $this->response->setOutput(json_encode($response));
     }
                 ]]>
             </add>

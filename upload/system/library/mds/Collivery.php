@@ -579,7 +579,8 @@ class Collivery
 
             $addressId = $result['address_id'];
             if (isset($result['contact_id'])) {
-                $contactId = current($this->getContacts($addressId));
+                $contact = current($this->getContacts($addressId));
+                $contactId = $contact['contact_id'];
 
                 return $this->errorsOrResponse(['address_id' => $addressId, 'contact_id' => $contactId]);
             }
