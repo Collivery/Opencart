@@ -2,9 +2,6 @@
 
 namespace Mds;
 
-use SoapClient;
-use SoapFault;
-
 class Collivery
 {
     const ENDPOINT = 'https://collivery.co.za/wsdl/v2';
@@ -75,12 +72,12 @@ class Collivery
     {
         if (!($this->client instanceof \SoapClient)) {
             try {
-                $this->client = new SoapClient( // Setup the soap client
+                $this->client = new \SoapClient( // Set up the soap client
                     self::ENDPOINT, // URL to WSDL File
                     ['cache_wsdl' => WSDL_CACHE_NONE] // Don't cache the WSDL file
                 );
-            } catch (SoapFault $e) {
-                $this->catchSoapFault($e);
+            } catch (\Exception $e) {
+                $this->catchException($e);
             }
         }
 
@@ -139,10 +136,8 @@ class Collivery
 
                 return $this;
             }
-        } catch (SoapFault $exception) {
-            $this->catchSoapFault($exception);
-        } catch (\ReflectionException $e) {
-            die($e->getMessage());
+        } catch (\Exception $e) {
+            $this->catchException($e);
         }
 
         return $this;
@@ -165,12 +160,33 @@ class Collivery
     }
 
     /**
-     * @param SoapFault $e
+     * Create a stacktrace as best we can
+     * @param \Exception $e
      */
-    public function catchSoapFault(SoapFault $e)
+    public function catchException(\Exception $e)
     {
-        $this->setError($e->faultcode, $e->faultstring);
+        if ($e instanceof \SoapFault) {
+            $this->setError($e->faultcode, $e->faultstring);
+        } else {
+            $this->setError($e->getCode(), $e->getMessage());
+        }
+        $backtrace = debug_backtrace();
+        // remove the call to `catchException()` - that's not useful in the stacktrace
+        array_shift($backtrace);
+
+        $this->setError(
+            array_map(function (array $trace) {
+                return array_map(function ($value, $key) {
+                    if (is_array($value)) { // it's the `args`
+                        return implode(', ', $value).'</br>';
+                    }
+
+                    return "$value $key </br>";
+                },array_values($trace),array_keys($trace));
+            }, $backtrace)
+        );
     }
+
     /**
      * @param        $id
      * @param string $text
@@ -360,9 +376,8 @@ class Collivery
         try {
             // We cannot use (...$params) as we need to support 5.4
             return call_user_func_array([$this->client, trim($method)], $params);
-        } catch (SoapFault $e) {
-            //oops, something went wrong from the client, what is it?
-            $this->catchSoapFault($e);
+        } catch (\Exception $e) {
+            $this->catchException($e);
         }
 
         //What was wrong with the soap client?
