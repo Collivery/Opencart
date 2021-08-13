@@ -432,12 +432,13 @@ class Collivery
 
         if (!isset($result['addresses'])) {
             $this->setError('result_unexpected', 'No address_id returned.');
-        }
+            $addresses = [];
+        } else {
+            $addresses = $result['addresses'];
 
-        $addresses = $result['addresses'];
-
-        if ($this->cacheEnabled && empty($filter)) {
-            $this->setCache($cacheKey, $addresses);
+            if ($this->cacheEnabled && empty($filter)) {
+                $this->setCache($cacheKey, $addresses);
+            }
         }
 
         return $this->errorsOrResponse($addresses);
