@@ -59,7 +59,7 @@
             } else {
                 list($password, $username, $is_demo) = $query->row;
             }
-            $config = array(
+            $config = [
                 'log' => $this->registry->get('log'),
                 'cache_dir' => DIR_CACHE.'/mds/',
                 'app_name' => 'MDS Collivery.net',
@@ -69,7 +69,7 @@
                 'user_email' => $username ,
                 'user_password' => $password,
                 'demo' =>  $is_demo
-            );
+            ];
 
             $collivery_library = DIR_SYSTEM . 'library/mds/Collivery.php';
             if(is_file($collivery_library)){
@@ -77,7 +77,7 @@
                 $this->registry->set('collivery', new \Mds\Collivery($config));
                 $collivery = $this->registry->get('collivery');
                 if($collivery->authenticate() &&  $collivery->isAuthError()){
-                    $this->registry->set('error', array('warning' => 'Collivery.net Shipping Plugin Auth Error'));
+                    $this->registry->set('error', ['warning' => 'Collivery.net Shipping Plugin Auth Error']);
                 }
             }
         }
@@ -1277,7 +1277,7 @@
 
                 if($this->collivery && !$this->collivery->hasErrors()){
                     if($custom_field['name'] === 'Location Type' || $custom_field['name'] === 'Town' || $custom_field['name'] === 'Suburb'){
-                        $custom_field_value_query->rows = array();
+                        $custom_field_value_query->rows = [];
                         if($custom_field['name'] == 'Location Type'){
                             $data_array = $location_types;
                         }elseif ($custom_field['name'] == 'Town'){
@@ -1285,9 +1285,9 @@
                         }else{
                             $data_array = $suburbs;
                         }
-                        $custom_field_value_query->rows[] = array('custom_field_value_id' => 0, 'name' => 'Select ' . $custom_field['name']);
+                        $custom_field_value_query->rows[] = ['custom_field_value_id' => 0, 'name' => 'Select ' . $custom_field['name']];
                         foreach ($data_array as $id => $name){
-                            $custom_field_value_query->rows[] = array('custom_field_value_id' => $id, 'name' => $name);
+                            $custom_field_value_query->rows[] = ['custom_field_value_id' => $id, 'name' => $name];
                         }
                     }
                 }
@@ -1328,10 +1328,10 @@
                 $suburb = $this->collivery->getAllSuburbs();
                 $data = ${str_replace(' ', '', strtolower($query->row['name']))};
                 foreach($data as $key => $val){
-                    $custom_field_value_data[$key] = array(
+                    $custom_field_value_data[$key] = [
                         'custom_field_value_id' => $key,
                         'name'                  => $val
-                    );
+                    ];
                 }
             }
             return $custom_field_value_data;
