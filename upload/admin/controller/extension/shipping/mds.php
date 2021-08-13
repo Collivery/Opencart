@@ -1,21 +1,25 @@
 <?php
 
+use Cart\User;
+use Mds\Collivery;
+
 /**
- * @property \ModelSettingEvent         $model_setting_event
- * @property \ModelSettingSetting       $model_setting_setting
- * @property \ModelLocalisationGeoZone  $model_localisation_geo_zone
+ * @property \ModelSettingEvent $model_setting_event
+ * @property \ModelSettingSetting $model_setting_setting
+ * @property \ModelLocalisationGeoZone $model_localisation_geo_zone
  * @property \ModelLocalisationTaxClass $model_localisation_tax_class
- * @property \Loader                    $load
- * @property \Document                  $document
- * @property \Request                   $request
- * @property \Session                   $session
- * @property \Response                  $response
- * @property \Language                  $language
- * @property \Url                       $url
- * @property \Config                    $config
- * @property \Log                       $log
- * @property \Cart\User                 $user
- * @property \Mds\Collivery             $collivery
+ * @property \Loader $load
+ * @property \Document $document
+ * @property \Request $request
+ * @property \Session $session
+ * @property \Response $response
+ * @property \Language $language
+ * @property \Url $url
+ * @property \Config $config
+ * @property \Log $log
+ * @property User $user
+ * @property ModelExtensionShippingMds $model_extension_shipping_mds
+ * @property Collivery $collivery
  */
 class ControllerExtensionShippingMds extends Controller {
     private $error = array();
@@ -173,13 +177,15 @@ class ControllerExtensionShippingMds extends Controller {
         if (!$this->user->hasPermission('modify', 'shipping/mds')) {
             $this->error['warning'] = $this->language->get('error_permission');
         }
-        if (!$this->request->post['shipping_mds_username']) {
+        $input = $this->request->post;
+        if (! $input['shipping_mds_username']) {
             $this->error['username'] = $this->language->get('error_username');
         }
-        if (!$this->request->post['shipping_mds_password']) {
+        if (! $input['shipping_mds_password']) {
             $this->error['password'] = $this->language->get('error_password');
         }
-        if (($this->request->post['shipping_mds_username'] != $this->config->get('shipping_mds_username')) || ($this->request->post['shipping_mds_password'] != $this->config->get('shipping_mds_password'))) {
+        if ( $input['shipping_mds_username'] !== $this->config->get('shipping_mds_username')
+             || $input['shipping_mds_password'] !== $this->config->get('shipping_mds_password')) {
 
             $mdsErrors       = $this->collivery->getErrors();
             if ($mdsErrors) {
@@ -192,7 +198,7 @@ class ControllerExtensionShippingMds extends Controller {
     public function install() {
 
         $errors = '';
-        if (version_compare(phpversion(), '5.4.0', '<') == true) {
+        if (PHP_VERSION_ID < 50400 === true) {
             $errors .= 'MDS Collivery requires PHP 5.4 in order to run. Please upgrade before installing.' . PHP_EOL;
         }
         if (!extension_loaded('soap')) {

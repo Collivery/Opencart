@@ -73,7 +73,7 @@ class Collivery
      */
     public function init()
     {
-        if (!$this->client || !($this->client instanceof SoapClient)) {
+        if (!($this->client instanceof \SoapClient)) {
             try {
                 $this->client = new SoapClient( // Setup the soap client
                     self::ENDPOINT, // URL to WSDL File
@@ -124,7 +124,6 @@ class Collivery
         }
 
         try {
-
             $authenticate = $this->client->authenticate($user_email, $user_password, $this->token, $config);
 
             if ($authenticate) {
@@ -134,9 +133,9 @@ class Collivery
                 }
 
                 $this->default_address_id = $authenticate['default_address_id'];
-                $this->client_id = $authenticate['client_id'];
-                $this->user_id = $authenticate['user_id'];
-                $this->token = $authenticate['token'];
+                $this->client_id          = $authenticate['client_id'];
+                $this->user_id            = $authenticate['user_id'];
+                $this->token              = $authenticate['token'];
 
                 return $this;
             }
@@ -164,6 +163,7 @@ class Collivery
 
         return $this;
     }
+
     /**
      * @param SoapFault $e
      */
@@ -260,12 +260,13 @@ class Collivery
     {
         return $this->errors;
     }
+
     /**
      * @param     $key
      * @param     $value
      * @param int $ttl
      *
-     * @return mixed
+     * @return bool
      */
     public function setCache($key, $value, $ttl = 1440)
     {
@@ -370,7 +371,7 @@ class Collivery
     /**
      * @param null $town_id
      *
-     * @return array|mixed|null
+     * @return array|null
      */
     private function getAllSuburbs($town_id = null)
     {
@@ -379,7 +380,7 @@ class Collivery
     /**
      * @param $town_id
      *
-     * @return array|mixed|null
+     * @return array|null
      */
     private function getSuburbs($town_id)
     {
@@ -413,7 +414,7 @@ class Collivery
     /**
      * @param array $filter
      *
-     * @return array|mixed|null
+     * @return array|null
      */
     public function getAddresses(array $filter = [])
     {
@@ -441,11 +442,11 @@ class Collivery
 
         return $this->errorsOrResponse($addresses);
     }
+
     /**
      * @param $colliveryId
      *
-     * @return array|mixed|null
-     * @throws \ReflectionException
+     * @return array|null
      */
     private function getPod($colliveryId)
     {
@@ -589,7 +590,7 @@ class Collivery
         return $this->errorsOrResponse();
     }
     /**
-     * @return array|mixed|null
+     * @return array|null
      */
     private function getLocationTypes()
     {
@@ -621,7 +622,7 @@ class Collivery
      * @param string $country
      * @param null   $province
      *
-     * @return array|mixed|null
+     * @return array|null
      */
     private function getTowns($country = 'zaf', $province = null)
     {
@@ -654,8 +655,7 @@ class Collivery
     /**
      * @param $address_id
      *
-     * @return array|mixed|null
-     * @throws \ReflectionException
+     * @return array|null
      */
     private function getContacts($address_id)
     {
@@ -686,7 +686,6 @@ class Collivery
      * @param array $data
      *
      * @return $this|array
-     * @throws \ReflectionException
      */
     private function addContact(array $data)
     {
@@ -725,8 +724,7 @@ class Collivery
     /**
      * @param $address_id
      *
-     * @return array|mixed|null
-     * @throws \ReflectionException
+     * @return array|null
      */
     private function getAddress($address_id)
     {
@@ -753,9 +751,9 @@ class Collivery
 
         return $this->errorsOrResponse($address);
     }
+
     /**
      * @return array
-     * @throws \ReflectionException
      */
     private function getDefaultAddress()
     {
@@ -789,7 +787,6 @@ class Collivery
      * @param array $data Properties of the new Collivery
      *
      * @return array         The validated data
-     * @throws \ReflectionException
      */
     private function validate(array $data)
     {
@@ -874,7 +871,6 @@ class Collivery
     }
     /**
      * @return array
-     * @throws \ReflectionException
      */
     private function getServices()
     {
@@ -943,8 +939,7 @@ class Collivery
     /**
      * @param array $data
      *
-     * @return array|mixed
-     * @throws \ReflectionException
+     * @return array
      */
     private function addCollivery(array $data)
     {
