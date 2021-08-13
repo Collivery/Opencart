@@ -40,4 +40,3 @@ $_['error_password'] = 'Password Required!';
 $_['error_login'] = 'Error with your collivery.net login details! You can reset at https://collivery.net';
 $_['error_markup'] = 'Markup error!';
 $_['tab_collivery'] = 'Collivery.net Shipping';
-//$_[$id] = $error;
