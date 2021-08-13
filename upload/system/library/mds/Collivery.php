@@ -1,4 +1,6 @@
 <?php
+/** @noinspection PhpMultipleClassDeclarationsInspection */
+/** @noinspection PhpUnused */
 
 namespace Mds;
 
@@ -52,8 +54,7 @@ class Collivery
      * @param $method
      * @param $args
      *
-     * @return array|mixed
-     * @throws \ReflectionException
+     * @return array
      */
     public function __call($method, $args)
     {
@@ -188,8 +189,8 @@ class Collivery
     }
 
     /**
-     * @param        $id
-     * @param string $text
+     * @param int|array $id
+     * @param string|null $text
      *
      * @return $this
      */
@@ -521,7 +522,6 @@ class Collivery
      * @param array $data
      *
      * @return array
-     * @throws \ReflectionException
      */
     private function addAddress(array $data)
     {
