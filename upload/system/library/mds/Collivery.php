@@ -1,9 +1,8 @@
 <?php
+/** @noinspection PhpMultipleClassDeclarationsInspection */
+/** @noinspection PhpUnused */
 
 namespace Mds;
-
-use SoapClient;
-use SoapFault;
 
 class Collivery
 {
@@ -55,8 +54,7 @@ class Collivery
      * @param $method
      * @param $args
      *
-     * @return array|mixed
-     * @throws \ReflectionException
+     * @return array
      */
     public function __call($method, $args)
     {
@@ -73,14 +71,14 @@ class Collivery
      */
     public function init()
     {
-        if (!$this->client || !($this->client instanceof SoapClient)) {
+        if (!($this->client instanceof \SoapClient)) {
             try {
-                $this->client = new SoapClient( // Setup the soap client
+                $this->client = new \SoapClient( // Set up the soap client
                     self::ENDPOINT, // URL to WSDL File
                     ['cache_wsdl' => WSDL_CACHE_NONE] // Don't cache the WSDL file
                 );
-            } catch (SoapFault $e) {
-                $this->catchSoapFault($e);
+            } catch (\Exception $e) {
+                $this->catchException($e);
             }
         }
 
@@ -124,7 +122,6 @@ class Collivery
         }
 
         try {
-
             $authenticate = $this->client->authenticate($user_email, $user_password, $this->token, $config);
 
             if ($authenticate) {
@@ -134,16 +131,14 @@ class Collivery
                 }
 
                 $this->default_address_id = $authenticate['default_address_id'];
-                $this->client_id = $authenticate['client_id'];
-                $this->user_id = $authenticate['user_id'];
-                $this->token = $authenticate['token'];
+                $this->client_id          = $authenticate['client_id'];
+                $this->user_id            = $authenticate['user_id'];
+                $this->token              = $authenticate['token'];
 
                 return $this;
             }
-        } catch (SoapFault $exception) {
-            $this->catchSoapFault($exception);
-        } catch (\ReflectionException $e) {
-            die($e->getMessage());
+        } catch (\Exception $e) {
+            $this->catchException($e);
         }
 
         return $this;
@@ -164,16 +159,38 @@ class Collivery
 
         return $this;
     }
+
     /**
-     * @param SoapFault $e
+     * Create a stacktrace as best we can
+     * @param \Exception $e
      */
-    public function catchSoapFault(SoapFault $e)
+    public function catchException(\Exception $e)
     {
-        $this->setError($e->faultcode, $e->faultstring);
+        if ($e instanceof \SoapFault) {
+            $this->setError($e->faultcode, $e->faultstring);
+        } else {
+            $this->setError($e->getCode(), $e->getMessage());
+        }
+        $backtrace = debug_backtrace();
+        // remove the call to `catchException()` - that's not useful in the stacktrace
+        array_shift($backtrace);
+
+        $this->setError(
+            array_map(function (array $trace) {
+                return array_map(function ($value, $key) {
+                    if (is_array($value)) { // it's the `args`
+                        return implode(', ', $value).'</br>';
+                    }
+
+                    return "$value $key </br>";
+                },array_values($trace),array_keys($trace));
+            }, $backtrace)
+        );
     }
+
     /**
-     * @param        $id
-     * @param string $text
+     * @param int|array $id
+     * @param string|null $text
      *
      * @return $this
      */
@@ -203,22 +220,7 @@ class Collivery
 
             return;
         }
-        if (property_exists($this, 'log')) {
-
-            try {
-                $reflectionClass = new \ReflectionClass($this->log);
-                $message = "collivery_net_error: {$message}"; //message to be logged
-
-                foreach (['write', 'message'] as $method) {
-                    if ($reflectionClass->hasMethod($method)) {
-                        $this->log->{$method}($message);
-                        break; //exit
-                    }
-                }
-            } catch (\ReflectionException $e) {
-                die($e->getMessage());
-            }
-        }
+        $this->log->write("collivery_net_error: {$message}");
     }
     /**
      * @param $key
@@ -260,12 +262,13 @@ class Collivery
     {
         return $this->errors;
     }
+
     /**
      * @param     $key
      * @param     $value
      * @param int $ttl
      *
-     * @return mixed
+     * @return bool
      */
     public function setCache($key, $value, $ttl = 1440)
     {
@@ -359,9 +362,8 @@ class Collivery
         try {
             // We cannot use (...$params) as we need to support 5.4
             return call_user_func_array([$this->client, trim($method)], $params);
-        } catch (SoapFault $e) {
-            //oops, something went wrong from the client, what is it?
-            $this->catchSoapFault($e);
+        } catch (\Exception $e) {
+            $this->catchException($e);
         }
 
         //What was wrong with the soap client?
@@ -370,7 +372,7 @@ class Collivery
     /**
      * @param null $town_id
      *
-     * @return array|mixed|null
+     * @return array|null
      */
     private function getAllSuburbs($town_id = null)
     {
@@ -379,7 +381,7 @@ class Collivery
     /**
      * @param $town_id
      *
-     * @return array|mixed|null
+     * @return array|null
      */
     private function getSuburbs($town_id)
     {
@@ -413,7 +415,7 @@ class Collivery
     /**
      * @param array $filter
      *
-     * @return array|mixed|null
+     * @return array|null
      */
     public function getAddresses(array $filter = [])
     {
@@ -431,21 +433,22 @@ class Collivery
 
         if (!isset($result['addresses'])) {
             $this->setError('result_unexpected', 'No address_id returned.');
-        }
+            $addresses = [];
+        } else {
+            $addresses = $result['addresses'];
 
-        $addresses = $result['addresses'];
-
-        if ($this->cacheEnabled && empty($filter)) {
-            $this->setCache($cacheKey, $addresses);
+            if ($this->cacheEnabled && empty($filter)) {
+                $this->setCache($cacheKey, $addresses);
+            }
         }
 
         return $this->errorsOrResponse($addresses);
     }
+
     /**
      * @param $colliveryId
      *
-     * @return array|mixed|null
-     * @throws \ReflectionException
+     * @return array|null
      */
     private function getPod($colliveryId)
     {
@@ -519,7 +522,6 @@ class Collivery
      * @param array $data
      *
      * @return array
-     * @throws \ReflectionException
      */
     private function addAddress(array $data)
     {
@@ -577,7 +579,8 @@ class Collivery
 
             $addressId = $result['address_id'];
             if (isset($result['contact_id'])) {
-                $contactId = current($this->getContacts($addressId));
+                $contact = current($this->getContacts($addressId));
+                $contactId = $contact['contact_id'];
 
                 return $this->errorsOrResponse(['address_id' => $addressId, 'contact_id' => $contactId]);
             }
@@ -589,7 +592,7 @@ class Collivery
         return $this->errorsOrResponse();
     }
     /**
-     * @return array|mixed|null
+     * @return array|null
      */
     private function getLocationTypes()
     {
@@ -621,7 +624,7 @@ class Collivery
      * @param string $country
      * @param null   $province
      *
-     * @return array|mixed|null
+     * @return array|null
      */
     private function getTowns($country = 'zaf', $province = null)
     {
@@ -654,8 +657,7 @@ class Collivery
     /**
      * @param $address_id
      *
-     * @return array|mixed|null
-     * @throws \ReflectionException
+     * @return array|null
      */
     private function getContacts($address_id)
     {
@@ -686,7 +688,6 @@ class Collivery
      * @param array $data
      *
      * @return $this|array
-     * @throws \ReflectionException
      */
     private function addContact(array $data)
     {
@@ -725,8 +726,7 @@ class Collivery
     /**
      * @param $address_id
      *
-     * @return array|mixed|null
-     * @throws \ReflectionException
+     * @return array|null
      */
     private function getAddress($address_id)
     {
@@ -753,9 +753,9 @@ class Collivery
 
         return $this->errorsOrResponse($address);
     }
+
     /**
      * @return array
-     * @throws \ReflectionException
      */
     private function getDefaultAddress()
     {
@@ -789,7 +789,6 @@ class Collivery
      * @param array $data Properties of the new Collivery
      *
      * @return array         The validated data
-     * @throws \ReflectionException
      */
     private function validate(array $data)
     {
@@ -874,7 +873,6 @@ class Collivery
     }
     /**
      * @return array
-     * @throws \ReflectionException
      */
     private function getServices()
     {
@@ -943,8 +941,7 @@ class Collivery
     /**
      * @param array $data
      *
-     * @return array|mixed
-     * @throws \ReflectionException
+     * @return array
      */
     private function addCollivery(array $data)
     {
@@ -990,13 +987,17 @@ class Collivery
             $errors['invalid_data'] = 'Invalid service.';
         }
         if ($errors) {
-            return $this->setError($errors);
+            $this->setError($errors);
         }
 
         $result = $this->sendSoapRequest('add_collivery', [$data]);
 
         if (isset($result['error_id'])) {
-            return $this->setError($result['error_id'], $result['error']);
+            $this->setError($result['error_id'], $result['error']);
+        }
+
+        if (!empty($this->errors)) {
+            throw new \Mds\ColliveryException(implode($this->getErrors()));
         }
 
         return $result['collivery_id'];
@@ -1170,7 +1171,7 @@ class Log
     /**
      * @param $message
      */
-    public function message($message)
+    public function write($message)
     {
         chmod($this->logPath, 0777);
         file_put_contents($this->logPath . '/collivery.net_error_logs' . date('Ymd') . '.log', "{$message}\n",
