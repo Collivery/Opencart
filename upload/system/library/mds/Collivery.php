@@ -5,6 +5,8 @@
 
 namespace Mds;
 
+require_once 'debug.php';
+
 class Collivery
 {
     const ENDPOINT = 'https://collivery.co.za/wsdl/v2';
@@ -47,10 +49,10 @@ class Collivery
     /**
      * Any method called from this class goes via the magic call
      * We want to make sure that we clear all errors that were generated
-     * before before calling another method, we also want to ensure that
-     * Soap client is initialized before calling any method from it
+     * before calling another method, we also want to ensure that
+     * Soap client is initialized before calling any method from it.
      * We also want to make sure that a collivery client is authenticated
-     *if the conditions above do not succeed, return errors stating reason
+     * if the conditions above do not succeed, return errors stating reason
      * for failure for each
      *
      * @param $method
@@ -178,21 +180,11 @@ class Collivery
         } else {
             $this->setError($e->getCode(), $e->getMessage());
         }
-        $backtrace = debug_backtrace();
+        $backtrace = debug_backtrace(DEBUG_BACKTRACE_PROVIDE_OBJECT, 6);
         // remove the call to `catchException()` - that's not useful in the stacktrace
         array_shift($backtrace);
 
-        $this->setError(
-            array_map(function (array $trace) {
-                return array_map(function ($value, $key) {
-                    if (is_array($value)) { // it's the `args`
-                        return implode(', ', $value).'</br>';
-                    }
-
-                    return "$value $key </br>";
-                }, array_values($trace), array_keys($trace));
-            }, $backtrace)
-        );
+        $this->logBacktrace($e->getMessage(), $backtrace);
     }
 
     /**
@@ -229,6 +221,16 @@ class Collivery
             return;
         }
         $this->log->write("collivery_net_error: {$message}");
+    }
+
+    public function logBacktrace($message, array $backtrace)
+    {
+        ob_start();
+        debug($backtrace);
+        $a = ob_get_clean();
+
+        // Use the mds log class, writes to a separate file
+        (new Log($this->config->log_dir))->write($message.PHP_EOL.$a);
     }
 
     /**
@@ -1224,12 +1226,20 @@ class Log
      */
     public function write($message)
     {
-        chmod($this->logPath, 0777);
-        file_put_contents(
-            $this->logPath.'/collivery.net_error_logs'.date('Ymd').'.log',
-            "{$message}\n",
-            FILE_APPEND
+        // Convoluted logic to prevent race condition errors
+        if (! is_dir($concurrentDirectory = $this->logPath)  && ! @mkdir($concurrentDirectory) && ! is_dir($concurrentDirectory)) {
+            throw new \RuntimeException(sprintf('Directory "%s" was not created', $concurrentDirectory));
+        }
+        chmod($this->logPath, 0775);
+        $file = fopen($this->logPath.'/collivery.net_error-'.date('Ymd').'.log', 'a');
+        fwrite(
+            $file,
+            sprintf(
+                "[%s] ERROR : %s\n",
+                date('Y-m-d H:i:s'),
+                $message
+            )
         );
+        fclose($file);
     }
-
 }
