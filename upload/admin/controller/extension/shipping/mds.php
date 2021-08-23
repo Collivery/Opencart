@@ -69,7 +69,7 @@ class ControllerExtensionShippingMds extends Controller
             $this->model_setting_setting->editSetting('shipping_mds', $this->request->post);
             $this->session->data['success'] = $this->language->get('text_success');
             $this->response->redirect(
-                $this->url->link('marketplace/extension', 'user_token='.$this->session->data['user_token'], 'SSL')
+                $this->url->link('marketplace/extension', 'user_token='.$this->session->data['user_token'])
             );
         }
 
@@ -142,21 +142,25 @@ class ControllerExtensionShippingMds extends Controller
         ];
         $data['breadcrumbs'][] = [
             'text' => $this->language->get('text_shipping'),
-            'href' => $this->url->link('extension/shipping', 'user_token='.$this->session->data['user_token'], 'SSL'),
+            'href' => $this->url->link(
+                'marketplace/extension',
+                'user_token='.$this->session->data['user_token'].'&type=shipping',
+                true
+            ),
         ];
         $data['breadcrumbs'][] = [
             'text' => $this->language->get('heading_title'),
             'href' => $this->url->link('shipping/mds', 'user_token='.$this->session->data['user_token'], 'SSL'),
         ];
-        $data['action']        = $this->url->link(
+        $data['action'] = $this->url->link(
             'extension/shipping/mds',
             'user_token='.$this->session->data['user_token'],
-            'SSL'
+            true
         );
-        $data['cancel']        = $this->url->link(
-            'extension/shipping',
-            'user_token='.$this->session->data['user_token'],
-            'SSL'
+        $data['cancel'] = $this->url->link(
+            'marketplace/extension',
+            'user_token='.$this->session->data['user_token'].'&type=shipping',
+            true
         );
 
         if (isset($this->request->post['shipping_mds_username'])) {
