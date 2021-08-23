@@ -77,30 +77,35 @@ class ModelExtensionShippingMds extends Model
                 } else {
                     $data['rica'] = 0;
                 }
-                $price               = $this->getShippingCost($data);
-                $price_including_vat = (int)$price['price']['inc_vat'];
+                $price = $this->getShippingCost($data);
 
+                if ( ! isset($price['price'])) {
+                    $errors        = array_merge($errors, $price);
+                    $display_price = 0;
+                } else {
+                    $price_including_vat = (int)$price['price']['inc_vat'];
 
-                switch (true) {
-                    case ($service_markup_percentage >= 0 && $service_markup_percentage <= 1):
-                        break;
-                    case ($service_markup_percentage >= 1 && $service_markup_percentage <= 100):
-                        $service_markup_percentage = (float)($service_markup_percentage / 100);
-                        break;
-                    default:
-                        $service_markup_percentage = false;
-                        break;
+                    switch (true) {
+                        case ($service_markup_percentage >= 0 && $service_markup_percentage <= 1):
+                            break;
+                        case ($service_markup_percentage >= 1 && $service_markup_percentage <= 100):
+                            $service_markup_percentage = (float)($service_markup_percentage / 100);
+                            break;
+                        default:
+                            $service_markup_percentage = false;
+                            break;
+                    }
+                    /**
+                     * Display Price Formula: A = P(1+m)
+                     * A = $display_price
+                     * P = total price including VAT except client markup fee
+                     * m = Markup percentage
+                     */
+                    $display_price = $service_markup_percentage ? round(
+                        $price_including_vat * (1 + $service_markup_percentage),
+                        2
+                    ) : $price_including_vat;
                 }
-                /**
-                 * Display Price Formula: A = P(1+m)
-                 * A = $display_price
-                 * P = total price including VAT except client markup fee
-                 * m = Markup percentage
-                 */
-                $display_price    = $service_markup_percentage ? round(
-                    $price_including_vat * (1 + $service_markup_percentage),
-                    2
-                ) : $price_including_vat;
                 $quote_data[$key] = [
                     'code'         => 'mds.'.$key,
                     'title'        => $service_display_name,
