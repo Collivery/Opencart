@@ -1382,7 +1382,6 @@ var user_token = user_token || url.searchParams.get('user_token');
                         }else{
                             $data_array = $suburbs;
                         }
-                        $custom_field_value_query->rows[] = ['custom_field_value_id' => 0, 'name' => 'Select ' . $custom_field['name']];
                         foreach ($data_array as $id => $name){
                             $custom_field_value_query->rows[] = ['custom_field_value_id' => $id, 'name' => $name];
                         }
