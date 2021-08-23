@@ -14,6 +14,7 @@
             </search>
             <add position="before">
                 <![CDATA[
+
         $collivery_method_available = false;
 		foreach ($this->session->data['shipping_methods'] as $method_array){
 		    if(isset($method_array['code']) && $method_array['code'] === 'mds' && count($method_array['quote'])) {
@@ -25,6 +26,7 @@
 		if($collivery_method_available){
             $data['error_warning'] = 'No Collivery.net Shipping Methods Available!';
         }
+
                 ]]>
             </add>
         </operation>
@@ -37,6 +39,7 @@
             </search>
             <add position="after">
                 <![CDATA[
+
         /** @collivery-config */
         if(!$this->registry->has('collivery')){
             $query = $this->registry->get('db')->query("SELECT
@@ -82,6 +85,7 @@
             }
         }
         /** @endcollivery-config */
+
                 ]]>
             </add>
         </operation>
@@ -93,6 +97,7 @@
             </search>
             <add position="after">
                 <![CDATA[
+
         /** @collivery-data */
         if($this->collivery){
             $default_address =  $this->collivery->getDefaultAddress();
@@ -111,6 +116,7 @@
         }
 
         /** @endcollivery-data */
+
                 ]]>
             </add>
         </operation>
@@ -119,7 +125,9 @@
                 <![CDATA["INSERT INTO `" . DB_PREFIX . "order` SET]]>
             </search>
             <add position="replace">
-                <![CDATA["INSERT INTO `" . DB_PREFIX . "order` SET {$extra_sql}]]>
+                <![CDATA[
+                "INSERT INTO `" . DB_PREFIX . "order` SET {$extra_sql}
+                ]]>
             </add>
         </operation>
     </file>
@@ -130,8 +138,10 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                     $this->load->model('account/customer');
                     $this->load->model('account/address');
+
                 ]]>
             </add>
         </operation>
@@ -141,10 +151,12 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                 $order_data['shipping_country_id'] = $this->session->data['shipping_address']['country_id'];
 				$order_data['shipping_collivery_town'] = $this->session->data['shipping_address']['collivery_town'];
 				$order_data['shipping_collivery_suburb'] = $this->session->data['shipping_address']['collivery_suburb'];
 				$order_data['shipping_collivery_location_type'] = $this->session->data['shipping_address']['collivery_location_type'];
+
                 ]]>
             </add>
         </operation>
@@ -156,10 +168,12 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                 $this->session->data['shipping_address']['zone_id'] = $this->request->post['zone_id'];
 				$this->session->data['shipping_address']['collivery_town'] = $this->request->post['collivery_town'];
 				$this->session->data['shipping_address']['collivery_suburb'] = $this->request->post['collivery_suburb'];
 				$this->session->data['shipping_address']['collivery_location_type'] = $this->request->post['collivery_location_type'];
+
                 ]]>
             </add>
         </operation>
@@ -169,6 +183,7 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                    $this->session->data['guest']['telephone'] = $this->request->post['telephone'];
                     /** @collivery-data */
                     $this->session->data['guest']['collivery_town'] = $this->request->post['collivery_town'];
@@ -176,6 +191,7 @@
                     $this->session->data['guest']['collivery_location_type'] = $this->request->post['collivery_location_type'];
 
                     /** @endcollivery-data */
+
                 ]]>
             </add>
         </operation>
@@ -186,7 +202,9 @@
                 <![CDATA[$custom_fields = $this->model_account_custom_field->getCustomFields($customer_group_id);]]>
             </search>
             <add position="replace">
-                <![CDATA[$custom_fields = $this->model_account_custom_field->getCustomFields();]]>
+                <![CDATA[
+                $custom_fields = $this->model_account_custom_field->getCustomFields();
+                ]]>
             </add>
         </operation>
     </file>
@@ -197,6 +215,7 @@
             </search>
             <add position="before">
                 <![CDATA[
+
     public function createColliveryAddress(){
         $order_id = $this->request->get['order_id'];
         if($order_id){
@@ -305,6 +324,7 @@
         $this->response->addHeader('Content-Type: application/json');
         $this->response->setOutput(json_encode($response));
     }
+
                 ]]>
             </add>
         </operation>
@@ -315,9 +335,8 @@
             </search>
             <add position="before">
                 <![CDATA[
+
     /** @collivery-data */
-
-
         list($code, $service_type_id) = explode('.', $data['shipping_code']);
         $data['is_mds'] = $code == 'mds';
         $location_types = $this->collivery->getLocationTypes();
@@ -400,6 +419,7 @@
             }
         }
         /** @endcolivery-data */
+
                 ]]>
             </add>
         </operation>
@@ -409,8 +429,10 @@
             </search>
             <add position="after">
                 <![CDATA[
+
                     $this->load->language('extension/shipping/mds');
                     $data = $this->language->all();
+
                 ]]>
             </add>
         </operation>
@@ -419,7 +441,9 @@
                 <![CDATA[$data['footer'] = $this->load->controller('common/footer');]]>
             </search>
             <add position="after">
-                <![CDATA[       $data['tab_mds'] = "Collivery.net";]]>
+                <![CDATA[
+                       $data['tab_mds'] = "Collivery.net";
+                ]]>
             </add>
         </operation>
     </file>
@@ -430,6 +454,7 @@
             </search>
             <add position="before">
                 <![CDATA[
+
                     public function getTownSuburbs() {
                         $townId = $this->request->get['town_id'];
                         $respond = "";
@@ -439,6 +464,7 @@
                         }
                         echo $respond;
                     }
+
                 ]]>
             </add>
         </operation>
@@ -450,6 +476,7 @@
             </search>
             <add position="before">
                 <![CDATA[
+
                     public function getTownSuburbs() {
                         $townId = $this->request->get['town_id'];
                         $respond = "";
@@ -458,6 +485,7 @@
                         }
                         echo $respond;
                     }
+
                 ]]>
             </add>
         </operation>
@@ -472,10 +500,12 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                 'address_id'     => $address_query->row['address_id'],
 				'collivery_town'     => $address_query->row['collivery_town'],
 				'collivery_suburb'     => $address_query->row['collivery_suburb'],
 				'collivery_location_type'     => $address_query->row['collivery_location_type'],
+
                 ]]>
             </add>
         </operation>
@@ -485,6 +515,7 @@
             </search>
             <add position="after">
                 <![CDATA[
+
                     $sql['collivery_town'] = $data['collivery_town'];
                     $sql['collivery_suburb'] = $data['collivery_suburb'];
                     $sql['collivery_location_type'] = $data['collivery_location_type'];
@@ -492,6 +523,7 @@
                     foreach($sql as $k => $v){
                         $string .= "$k='$v', ";
                     }
+
                 ]]>
             </add>
         </operation>
@@ -500,7 +532,9 @@
                 <![CDATA["UPDATE " . DB_PREFIX . "address SET]]>
             </search>
             <add position="replace">
-                <![CDATA["UPDATE " . DB_PREFIX . "address SET $string]]>
+                <![CDATA[
+                "UPDATE " . DB_PREFIX . "address SET $string
+                ]]>
             </add>
         </operation>
         <operation>
@@ -509,6 +543,7 @@
             </search>
             <add position="after">
                 <![CDATA[
+
         $sql['collivery_location_type'] = $data['collivery_location_type'];
         $sql['collivery_town'] = $data['collivery_town'];
         $sql['collivery_suburb'] = $data['collivery_suburb'];
@@ -516,6 +551,7 @@
         foreach($sql as $k => $v){
             $string .= "$k='$v', ";
         }
+
                 ]]>
             </add>
         </operation>
@@ -524,17 +560,21 @@
                 <![CDATA["INSERT INTO " . DB_PREFIX . "address SET]]>
             </search>
             <add position="replace">
-                <![CDATA["INSERT INTO " . DB_PREFIX . "address SET $string]]>
+                <![CDATA[
+                "INSERT INTO " . DB_PREFIX . "address SET $string
+                ]]>
             </add>
         </operation>
     </file>
     <file path="catalog/controller/account/address.php">
         <operation>
-        <search>
-            <![CDATA[if ($custom_field['location'] == 'address') {]]>
-        </search>
-        <add position="before">
-            <![CDATA[//if($custom_field['name'] == 'Town' || $custom_field['name'] == 'Suburb' || $custom_field['name'] == 'Location Type')continue;]]>
+            <search>
+                <![CDATA[if ($custom_field['location'] == 'address') {]]>
+            </search>
+            <add position="before">
+            <![CDATA[
+                //if($custom_field['name'] == 'Town' || $custom_field['name'] == 'Suburb' || $custom_field['name'] == 'Location Type')continue;
+            ]]>
         </add>
         </operation>
     </file>
@@ -545,7 +585,9 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                     if (isset($custom_field['location']) && $custom_field['location'] == 'address') {
+
                 ]]>
             </add>
         </operation>
@@ -557,9 +599,11 @@
             </search>
             <add position="after">
                 <![CDATA[
+
                     /** @collivery-data */
 					    $this->session->data['collivery_collection_address'] = $this->db->query("select * from " . DB_PREFIX . "address where address_id='$address_id'")->row;
                     /** @endcollivery-data */
+
                 ]]>
             </add>
         </operation>
@@ -569,7 +613,9 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                     if (isset($custom_field['location']) && $custom_field['location'] == 'address') {
+
                 ]]>
             </add>
         </operation>
@@ -581,7 +627,9 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                    $custom_fields = $this->model_account_custom_field->getCustomFields();
+
                 ]]>
             </add>
         </operation>
@@ -591,6 +639,7 @@
             </search>
             <add position="before">
                 <![CDATA[
+
         /** @collivery-data */
         if(isset($this->request->post['address_id'])){
             $address_id = $this->request->post['address_id'];
@@ -604,6 +653,7 @@
             }
         }
         /** @endcollivery-data */
+
                 ]]>
             </add>
         </operation>
@@ -613,7 +663,9 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                     if (isset($custom_field['location']) && $custom_field['location'] == 'address') {
+
                 ]]>
             </add>
         </operation>
@@ -626,7 +678,9 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                     if (isset($custom_field['location']) && $custom_field['location'] == 'address') {
+
                 ]]>
             </add>
         </operation>
@@ -638,7 +692,9 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                     if ($custom_field['required'] && empty($this->request->post['custom_field'][$custom_field['custom_field_id']])) {
+
                 ]]>
             </add>
         </operation>
@@ -649,7 +705,9 @@
                 <![CDATA[if (if ($custom_field['location'] == 'address') {]]>
             </search>
             <add position="before">
-                <![CDATA[if($custom_field['name'] == 'Town' || $custom_field['name'] == 'Suburb' || $custom_field['name'] == 'Location Type')continue;]]>
+                <![CDATA[
+                if($custom_field['name'] == 'Town' || $custom_field['name'] == 'Suburb' || $custom_field['name'] == 'Location Type'){continue;}
+                ]]>
             </add>
         </operation>
 
@@ -661,9 +719,11 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                     'firstname'      => $this->request->post['firstname'],
                     'collivery_town'      => $this->request->post['shipping_collivery_town'],
                     'collivery_location_type'      => $this->request->post['shipping_collivery_location_type'],
+
                 ]]>
             </add>
         </operation>
@@ -686,7 +746,9 @@
                 <![CDATA[: $('a[href=\'#tab-shipping\']')]]>
             </search>
             <add position="replace">
-                <![CDATA[: $('a[href=\'#tab-mds\']')]]>
+                <![CDATA[
+                : $('a[href=\'#tab-mds\']')
+                ]]>
             </add>
         </operation>
         <operation>
@@ -694,7 +756,9 @@
                 <![CDATA[$('#button-shipping-address').button('reset');]]>
             </search>
             <add position="replace">
-                <![CDATA[//$('#button-shipping-address').button('reset');]]>
+                <![CDATA[
+                //$('#button-shipping-address').button('reset');
+                ]]>
             </add>
         </operation>
         <operation>
@@ -703,6 +767,7 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                 var url = (new URL(window.location.href));
 var user_token = user_token || url.searchParams.get('user_token');
                 var colliveryElements = $(document)
@@ -782,6 +847,7 @@ var user_token = user_token || url.searchParams.get('user_token');
                   });
                 }
 
+
                 ]]>
             </add>
         </operation>
@@ -801,6 +867,7 @@ var user_token = user_token || url.searchParams.get('user_token');
             </search>
             <add position="replace">
                 <![CDATA[
+
                     <li class="disabled">
                         <a href="#tab-mds" data-toggle="tab">
                             5. {{ tab_collivery }}
@@ -811,6 +878,7 @@ var user_token = user_token || url.searchParams.get('user_token');
                             6. {{ tab_total }}
                         </a>
                     </li>
+
                 ]]>
             </add>
         </operation>
@@ -819,7 +887,9 @@ var user_token = user_token || url.searchParams.get('user_token');
                 <![CDATA[return false;]]>
             </search>
             <add position="replace">
-                <![CDATA[return false;]]>
+                <![CDATA[
+                return false;
+                ]]>
             </add>
         </operation>
         <operation>
@@ -828,6 +898,7 @@ var user_token = user_token || url.searchParams.get('user_token');
             </search>
             <add position="before">
                 <![CDATA[
+
             <div class="tab-pane" id="tab-mds">
    <div class="row">
       <div class="col-md-12 text-center">
@@ -918,6 +989,7 @@ var user_token = user_token || url.searchParams.get('user_token');
 </div>
 </div>
 </div>
+
                 ]]>
             </add>
         </operation>
@@ -926,8 +998,10 @@ var user_token = user_token || url.searchParams.get('user_token');
                 <![CDATA[[data: $('#tab-payment input[type=\'text\'], #tab-payment input[type=\'hidden\'], #tab-payment input[type=\'radio\']:checked, #tab-payment input[type=\'checkbox\']:checked, #tab-payment select, #tab-payment textarea'),]]>
             </search>
             <add position="replace">
-                <![CDATA[[
+                <![CDATA[
+                [
                     data: $('body').find('textarea, input, select').serialize(),
+
                 ]]>
             </add>
         </operation>
@@ -941,6 +1015,7 @@ var user_token = user_token || url.searchParams.get('user_token');
             </search>
             <add position="after">
                 <![CDATA[
+
                 <script type="text/javascript">
                    $(document)
                 .on('change', '[name="collivery_town"]', function() {
@@ -973,6 +1048,7 @@ var user_token = user_token || url.searchParams.get('user_token');
                   $(document).find('[name="city"]').closest('.form-group').attr('hidden', true)
                 });
                 </script>
+
                 ]]>
             </add>
         </operation>
@@ -983,7 +1059,9 @@ var user_token = user_token || url.searchParams.get('user_token');
                 <![CDATA[name="custom_field[{{ custom_field.location }}][{{ custom_field.custom_field_id }}]"]]>
             </search>
             <add position="replace">
-                <![CDATA[{% set custom_field_name = custom_field.name|lower|replace({' ': '_'}) %} {% if(custom_field_name == 'location_type' or custom_field_name == 'town' or custom_field_name == 'suburb') %}  name="collivery_{{ custom_field_name }}" {% else %}   name="custom_field[{{ custom_field.location }}][{{ custom_field.custom_field_id }}]" {% endif %} ]]>
+                <![CDATA[
+                {% set custom_field_name = custom_field.name|lower|replace({' ': '_'}) %} {% if(custom_field_name == 'location_type' or custom_field_name == 'town' or custom_field_name == 'suburb') %}  name="collivery_{{ custom_field_name }}" {% else %}   name="custom_field[{{ custom_field.location }}][{{ custom_field.custom_field_id }}]" {% endif %}
+                ]]>
             </add>
         </operation>
     </file>
@@ -994,6 +1072,7 @@ var user_token = user_token || url.searchParams.get('user_token');
             </search>
             <add position="replace">
                 <![CDATA[
+
                 {% set custom_field_name = custom_field.name|lower|replace({' ': '_'}) %}
 
                 {% if(custom_field_name == 'location_type' or custom_field_name == 'town' or custom_field_name == 'suburb') %}
@@ -1001,6 +1080,7 @@ var user_token = user_token || url.searchParams.get('user_token');
                 {% else %}
                     <select name="custom_field[{{ custom_field.location }}][{{ custom_field.custom_field_id }}]" id="input-payment-custom-field{{ custom_field.custom_field_id }}" class="form-control">
                 {% endif %}
+
                 ]]>
             </add>
         </operation>
@@ -1010,6 +1090,7 @@ var user_token = user_token || url.searchParams.get('user_token');
             </search>
             <add position="before">
                 <![CDATA[
+
 <div id="collivery-confirm-create-address-modal" class="modal fade" role="dialog">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -1097,6 +1178,7 @@ var user_token = user_token || url.searchParams.get('user_token');
 
     </div>
 </div>
+
                 ]]>
             </add>
         </operation>
@@ -1106,6 +1188,7 @@ var user_token = user_token || url.searchParams.get('user_token');
             </search>
             <add position="after">
                 <![CDATA[
+
                 <script>
                     var url = (new URL(window.location.href));
                     var user_token = url.searchParams.get('user_token');
@@ -1285,6 +1368,7 @@ var user_token = user_token || url.searchParams.get('user_token');
                   });
                 });
                 </script>
+
                 ]]>
             </add>
         </operation>
@@ -1296,6 +1380,7 @@ var user_token = user_token || url.searchParams.get('user_token');
             </search>
             <add position="replace">
                 <![CDATA[
+
                 {% set custom_field_name = custom_field.name|lower|replace({' ': '_'}) %}
 
                 {% if(custom_field_name == 'location_type' or custom_field_name == 'town' or custom_field_name == 'suburb') %}
@@ -1303,6 +1388,7 @@ var user_token = user_token || url.searchParams.get('user_token');
                     {% else %}
                     <select name="custom_field[{{ custom_field.location }}][{{ custom_field.custom_field_id }}]" id="input-shipping-custom-field{{ custom_field.custom_field_id }}" class="form-control">
                     {% endif %}
+
                 ]]>
             </add>
         </operation>
@@ -1314,6 +1400,7 @@ var user_token = user_token || url.searchParams.get('user_token');
             </search>
             <add position="before">
                 <![CDATA[
+
             /** @collivery-data **/
 
                 if($this->collivery && !$this->collivery->hasErrors()){
@@ -1333,6 +1420,7 @@ var user_token = user_token || url.searchParams.get('user_token');
                     }
                 }
                /** @endcollivery-data **/
+
                 ]]>
             </add>
         </operation>
@@ -1342,6 +1430,7 @@ var user_token = user_token || url.searchParams.get('user_token');
             </search>
             <add position="before">
                 <![CDATA[
+
        /** @collivery-data **/
        if($this->collivery){
             $location_types = $this->collivery->getLocationTypes();
@@ -1349,6 +1438,7 @@ var user_token = user_token || url.searchParams.get('user_token');
             $suburbs = $this->collivery->getAllSuburbs();
         }
        /** @endcollivery-data **/
+
                 ]]>
             </add>
         </operation>
@@ -1360,6 +1450,7 @@ var user_token = user_token || url.searchParams.get('user_token');
             </search>
             <add position="after">
                 <![CDATA[
+
             /** @collivery-data **/
         $query = $this->db->query("select * from " . DB_PREFIX . "custom_field_description where custom_field_id={$custom_field_id}");
         if($query->num_rows){
@@ -1378,6 +1469,7 @@ var user_token = user_token || url.searchParams.get('user_token');
             return $custom_field_value_data;
         }
                /** @endcollivery-data **/
+
                 ]]>
             </add>
         </operation>
