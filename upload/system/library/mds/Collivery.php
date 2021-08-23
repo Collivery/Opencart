@@ -25,25 +25,49 @@ class Collivery
     protected $log;
     protected $cache;
 
-    /**
-     * Setup class with basic Config
-     *
-     * @param array $config Configuration Array
-     * @param       $cache
-     */
-    public function __construct(array $config = [], $cache = null)
+    public function __construct(\Registry $registry)
     {
+        /** @var \Config $config */
+        $config = $registry->get('config');
+        /** @var \Log $log */
+        $log = $registry->get('log');
+        /** @var \Request $request */
+        $request = $registry->get('request');
 
-        $config['cache_dir'] = isset($config['cache_dir']) ? $config['cache_dir'] : basename(__DIR__);
-        $this->cache         = $cache ?: new Cache($config['cache_dir']);
-        $this->cacheEnabled  = (bool)(isset($config['enable_cache']) ? $config['enable_cache'] : $this->cacheEnabled);
-        $this->log           = isset($config['log']) ? $config['log'] : new Log;
-
-        if ((isset($config['demo']) && $config['demo']) || ! $config['user_email']) {
-            $config = array_merge($config, self::$demoAccount);
+        $username = $config->get('shipping_mds_username') ?: '';
+        $password = $config->get('shipping_mds_password') ?: '';
+        if ($config->has('shipping_mds_is_demo')) {
+            $demo = (bool) $config->get('shipping_mds_is_demo');
+        } else {
+            $demo = true;
         }
 
-        $this->config = (object)$config;
+        $cacheDir = DIR_CACHE.'mds/';
+        $logDir   = DIR_LOGS.'mds/';
+        $appUrl   = $request->server['HTTP_HOST'];
+
+        $this->cache        = new Cache($cacheDir);
+        $this->cacheEnabled = true;
+        $this->log          = new Log($logDir);
+
+        if ($demo || ! $username) {
+            $demo     = true;
+            $username = self::$demoAccount['user_email'];
+            $password = self::$demoAccount['user_password'];
+        }
+
+        $this->config = (object)[
+            'log'           => $log,
+            'cache_dir'     => DIR_CACHE.'mds/',
+            'log_dir'       => DIR_LOGS.'mds/',
+            'app_name'      => 'MDS Collivery.net',
+            'app_version'   => '1.2.0',
+            'app_host'      => 'Opencart '.VERSION,
+            'app_url'       => $appUrl,
+            'user_email'    => $username,
+            'user_password' => $password,
+            'demo'          => $demo,
+        ];
     }
 
     /**
