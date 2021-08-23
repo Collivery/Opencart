@@ -30,7 +30,7 @@ class ModelExtensionShippingMds extends Model
     {
         if (isset($address['address_id']) && $address['address_id']) {
             $address = $this->db->query(
-                "select * from ".DB_PREFIX."address where address_id={$address['address_id']}"
+                "select * from ".DB_PREFIX."address where address_id='" . $this->db->escape($address['address_id']) . "'"
             )->row;
         }
         $parcel          = $this->cart->getProducts();
