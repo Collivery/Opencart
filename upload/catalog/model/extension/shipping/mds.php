@@ -115,15 +115,13 @@ class ModelExtensionShippingMds extends Model
                 ];
             }
             if ($quote_data) {
-                $method_data = [
+                return [
                     'code'       => 'mds',
                     'title'      => 'MDS Collivery.net',
                     'quote'      => $quote_data,
                     'sort_order' => 1,
-                    'error'      => '',
+                    'error'      => implode('.', $errors),
                 ];
-
-                return $method_data;
             }
         }
 
