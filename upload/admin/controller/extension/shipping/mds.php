@@ -125,6 +125,14 @@ class ControllerExtensionShippingMds extends Controller
             $data['error_password'] = '';
         }
 
+        if (isset($this->session->data['success'])) {
+            $data['success'] = $this->session->data['success'];
+        }
+
+        if (isset($this->session->data['error'])) {
+            $data['error_warning'] .= $this->session->data['error'];
+        }
+
         $data['mdsErrors'] = '';
 
         $data['breadcrumbs']   = [];
