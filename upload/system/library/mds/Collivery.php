@@ -1233,9 +1233,9 @@ class Log
 {
     private $logPath;
 
-    public function __construct()
+    public function __construct($dir)
     {
-        $this->logPath = basename(__DIR__);
+        $this->logPath = $dir;
     }
 
     /**
