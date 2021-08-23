@@ -32,6 +32,17 @@ class ControllerExtensionShippingMds extends Controller
         $this->load->model('setting/setting');
         $this->document->setTitle($this->language->get('heading_title'));
 
+
+        if (isset($this->request->post['clear_cache'])) {
+            $this->collivery->clearCache();
+            $this->session->data['success'] = 'MDS cache cleared.';
+            $this->response->redirect(
+                $this->url->link('extension/shipping/mds', 'user_token='.$this->session->data['user_token'])
+            );
+
+            return;
+        }
+
         if (strtoupper($this->request->server['REQUEST_METHOD']) === 'POST') {
             $this->model_setting_setting->editSetting('shipping_mds', $this->request->post);
             $this->session->data['success'] = $this->language->get('text_success');

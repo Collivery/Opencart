@@ -332,6 +332,12 @@ class Collivery
 
         return $this;
     }
+
+    public function clearCache()
+    {
+        $this->cache->clear();
+    }
+
     /**
      * @param $results
      *
@@ -1189,6 +1195,13 @@ class Cache
         }
 
         return false;
+    }
+
+    public function clear()
+    {
+        foreach (glob($this->cache_dir.'*') as $file) {
+            file_exists($file) && unlink($file);
+        }
     }
 }
 
