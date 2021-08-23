@@ -9,6 +9,7 @@ require_once 'debug.php';
 
 class Collivery
 {
+    const PLUGIN_VERSION = '1.2.0';
     const ENDPOINT = 'https://collivery.co.za/wsdl/v2';
     const CACHE_PREFIX = 'collivery_net.';
 
