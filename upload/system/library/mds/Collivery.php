@@ -16,6 +16,7 @@ class Collivery
 
     protected $token;
     protected $client;
+    /** @var object|\stdClass */
     protected $config;
     protected $errors = [];
     protected $cacheEnabled = true;
@@ -212,7 +213,7 @@ class Collivery
     }
 
     /**
-     * @param int|array $id
+     * @param string|int|array $id
      * @param string|null $text
      *
      * @return $this
@@ -1027,6 +1028,7 @@ class Collivery
      * @param array $data
      *
      * @return array
+     * @throws ColliveryException
      */
     private function addCollivery(array $data)
     {

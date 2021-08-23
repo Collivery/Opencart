@@ -5,14 +5,6 @@ use Mds\MdsColliveryService;
 
 class ModelExtensionShippingMds extends Model
 {
-    /**
-     * @var MdsAddress
-     */
-    /**
-     * ModelExtensionShippingMds constructor.
-     *
-     * @param $registry
-     */
     public function __construct($registry)
     {
         parent::__construct($registry);
@@ -126,8 +118,6 @@ class ModelExtensionShippingMds extends Model
         }
 
         return $quote_data;
-
-
     }
 
     /**
