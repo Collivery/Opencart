@@ -39,6 +39,18 @@ class ModelExtensionShippingMds extends Model
         $data['rica']    = 0;
         $quote_data      = [];
 
+        if ( ! isset($address['collivery_town']) || ! $address['collivery_town']) {
+            return [
+                'code'       => 'mds',
+                'title'      => 'MDS Collivery.net',
+                'quote'      => $quote_data,
+                'sort_order' => 1,
+                'error'      => 'Missing required data to get MDS Collivery quote.',
+            ];
+        }
+
+
+        $errors = [];
         if ( ! $this->collivery->hasErrors()) {
             foreach ($this->collivery->getServices() as $key => $service) {
                 $data            = $this->buildColliveryControlData($address, $parcel);
