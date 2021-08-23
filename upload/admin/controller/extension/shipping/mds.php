@@ -43,6 +43,28 @@ class ControllerExtensionShippingMds extends Controller
             return;
         }
 
+        if (isset($this->request->post['download_error_logs'])) {
+            $zipFile = $this->collivery->compressBacktraceFiles();
+
+            if ( ! $zipFile) {
+                $this->session->data['error'] = 'Could not store zip file on your server. No access.';
+
+                $this->response->redirect(
+                    $this->url->link('extension/shipping/mds', 'user_token='.$this->session->data['user_token'])
+                );
+
+                return;
+            }
+
+            $this->response->addHeader('Content-Type: application/zip');
+            $this->response->addHeader('Content-Disposition: attachment; filename='.basename($zipFile));
+            $this->response->addHeader("Content-Length: ".filesize($zipFile));
+
+            $this->response->setOutput(file_get_contents($zipFile));
+
+            return;
+        }
+
         if (strtoupper($this->request->server['REQUEST_METHOD']) === 'POST') {
             $this->model_setting_setting->editSetting('shipping_mds', $this->request->post);
             $this->session->data['success'] = $this->language->get('text_success');

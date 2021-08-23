@@ -233,6 +233,23 @@ class Collivery
         (new Log($this->config->log_dir))->write($message.PHP_EOL.$a);
     }
 
+    public function compressBacktraceFiles()
+    {
+        $zip      = new \ZipArchive();
+        $filename = sys_get_temp_dir()."/mds-errors.zip";
+        if ( ! $zip->open($filename, \ZipArchive::CREATE)) {
+            return;
+        }
+
+        foreach (glob($this->config->log_dir.'/*.log') as $file) {
+            $zip->addFile($file, basename($file));
+        }
+
+        $zip->close();
+
+        return $filename;
+    }
+
     /**
      * @param $key
      *
