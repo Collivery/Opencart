@@ -1,7 +1,7 @@
 <?php
-/** @noinspection PhpMultipleClassDeclarationsInspection */
-
 /** @noinspection PhpUnused */
+/** @noinspection PhpUnusedPrivateMethodInspection */
+/** @noinspection PhpMultipleClassDeclarationsInspection */
 
 namespace Mds;
 
@@ -21,7 +21,7 @@ class Collivery
     protected $config;
     protected $errors = [];
     protected $cacheEnabled = true;
-    protected $default_address_id;
+    protected $auth_data = [];
     protected $client_id;
     protected $user_id;
     protected $log;
@@ -129,10 +129,10 @@ class Collivery
                       ! strcasecmp($this->config->user_email, $auth['user_email']);
 
         if ($isSameUser) {
-            $this->default_address_id = $auth['default_address_id'];
-            $this->client_id          = $auth['client_id'];
-            $this->user_id            = $auth['user_id'];
-            $this->token              = $auth['token'];
+            $this->auth_data = $auth;
+            $this->client_id = $auth['client_id'];
+            $this->user_id   = $auth['user_id'];
+            $this->token     = $auth['token'];
 
             return $this;
         }
@@ -157,12 +157,12 @@ class Collivery
             $authenticate = $this->client->authenticate($user_email, $user_password, $this->token, $config);
 
             if ($authenticate) {
+                $this->auth_data = $authenticate;
 
                 if ($this->cacheEnabled) {
                     $this->setCache($cacheKey, $authenticate, 59);
                 }
 
-                $this->default_address_id = $authenticate['default_address_id'];
                 $this->client_id          = $authenticate['client_id'];
                 $this->user_id            = $authenticate['user_id'];
                 $this->token              = $authenticate['token'];
@@ -323,7 +323,7 @@ class Collivery
     /**
      * @param     $key
      * @param     $value
-     * @param int $ttl
+     * @param int $ttl in Minutes
      *
      * @return bool
      */
@@ -835,27 +835,32 @@ class Collivery
     }
 
     /**
-     * @return array
-     */
-    private function getDefaultAddress()
-    {
-        $default_address_id = $this->getDefaultAddressId();
-
-        return [
-            'address'            => $this->getAddress($default_address_id),
-            'default_address_id' => $default_address_id,
-            'contacts'           => $this->getContacts($default_address_id),
-        ];
-    }
-
-    /**
      * Returns the clients default address
      *
      * @return int Address ID
      */
-    private function getDefaultAddressId()
+    public function getDefaultAddressId()
     {
-        return $this->default_address_id;
+        // Ensure we have the `default_address_id` set from API
+        // We will use that if there is no locally chosen Setting for it
+        if (empty($this->auth_data)) {
+            $this->authenticate();
+        }
+
+        $cacheKey = 'default_address_id.'.$this->client_id;
+
+        return (int) $this->getCache($cacheKey) ?: $this->auth_data['default_address_id'];
+    }
+
+    /**
+     * Stores the shop's locally chosen default address id
+     */
+    public function setDefaultAddressId(int $defaultAddressId)
+    {
+        $cacheKey = 'default_address_id.'.$this->client_id;
+        $oneCentury = 52594876;
+
+        $this->setCache($cacheKey, $defaultAddressId, $oneCentury);
     }
 
     /**
@@ -874,6 +879,10 @@ class Collivery
      */
     private function validate(array $data)
     {
+        if ( ! isset($data['collivery_from']) ) {
+            $data['collivery_from'] = $this->getDefaultAddressId();
+        }
+
         $contacts_from = $this->getContacts($data['collivery_from']);
         $contacts_to   = $this->getContacts($data['collivery_to']);
         $parcel_types  = $this->getParcelTypes();
@@ -1209,7 +1218,7 @@ class Cache
     /**
      * @param     $name
      * @param     $value
-     * @param int $time
+     * @param int $time in Minutes
      *
      * @return bool
      */

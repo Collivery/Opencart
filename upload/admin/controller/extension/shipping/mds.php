@@ -66,6 +66,8 @@ class ControllerExtensionShippingMds extends Controller
 
         if (strtoupper($this->request->server['REQUEST_METHOD']) === 'POST') {
             $this->model_setting_setting->editSetting('shipping_mds', $this->request->post);
+            // Cache the default address id in a context that's not only our OC settings
+            $this->collivery->setDefaultAddressId($this->request->post['shipping_mds_default_address_id']);
             $this->session->data['success'] = $this->language->get('text_success');
             $this->response->redirect(
                 $this->url->link('marketplace/extension', 'user_token='.$this->session->data['user_token'])
