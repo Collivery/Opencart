@@ -123,7 +123,7 @@ class ControllerExtensionShippingMds extends Controller
         $data['breadcrumbs']   = [];
         $data['breadcrumbs'][] = [
             'text' => $this->language->get('text_home'),
-            'href' => $this->url->link('common/dashboard', 'user_token='.$this->session->data['user_token'], 'SSL'),
+            'href' => $this->url->link('common/dashboard', 'user_token='.$this->session->data['user_token'], true),
         ];
         $data['breadcrumbs'][] = [
             'text' => $this->language->get('text_shipping'),
@@ -135,7 +135,7 @@ class ControllerExtensionShippingMds extends Controller
         ];
         $data['breadcrumbs'][] = [
             'text' => $this->language->get('heading_title'),
-            'href' => $this->url->link('shipping/mds', 'user_token='.$this->session->data['user_token'], 'SSL'),
+            'href' => $this->url->link('shipping/mds', 'user_token='.$this->session->data['user_token'], true),
         ];
         $data['action'] = $this->url->link(
             'extension/shipping/mds',
