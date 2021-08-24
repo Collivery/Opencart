@@ -13,7 +13,7 @@ class Collivery
     const ENDPOINT = 'https://collivery.co.za/wsdl/v2';
     const CACHE_PREFIX = 'collivery_net.';
 
-    private static $demoAccount = ['user_email' => 'api@collivery.co.za', 'user_password' => 'api123'];
+    public static $demoAccount = ['user_email' => 'api@collivery.co.za', 'user_password' => 'api123'];
 
     protected $token;
     protected $client;
