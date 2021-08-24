@@ -259,6 +259,40 @@ class ControllerExtensionShippingMds extends Controller
         return ! $this->error;
     }
 
+    // In the case of a re-upload or version upgrade of the extension
+    // Event listener for model/setting/extension/addExtensionInstall/before
+    public function refreshInstall(&$route, array $args)
+    {
+        $uploadedFile = $args[0];
+
+        if ($uploadedFile !== 'collivery.ocmod.zip') {
+            return;
+        }
+
+        // In case of non-BC changes in data structures
+        // (note that `$this->collivery` is not available at this point)
+        require_once DIR_SYSTEM.'library/mds/Collivery.php';
+        (new Collivery($this->registry))->clearCache();
+
+
+        // Because OpenCart doesn't allow any better way of clearing cache for rendered templates
+        // but the `.twig` file might have changed in our upload
+        // The best choice is to re-implement Template\Twig::render()
+        // And use the deprecated Twig_Environment::getCacheFilename()
+        try {
+            // include and register Twig auto-loader
+            include_once(DIR_SYSTEM . 'library/template/Twig/Autoloader.php');
+            \Twig_Autoloader::register();
+
+            $loader = new \Twig_Loader_Filesystem(DIR_TEMPLATE);
+            $twig = new \Twig_Environment($loader, ['cache' => DIR_CACHE]);
+            $file = $twig->getCacheFilename('extension/shipping/mds.twig');
+            if ($file && file_exists($file)) {
+                @unlink($file);
+            }
+        } catch (\Exception $e) {}
+    }
+
     public function install()
     {
 
@@ -281,6 +315,10 @@ class ControllerExtensionShippingMds extends Controller
         $this->load->model('extension/shipping/mds');
         $this->model_extension_shipping_mds->addColumns();
         $this->model_extension_shipping_mds->addCustomFields();
+
+        // Make sure we rerun this install if a new version is uploaded
+        $this->load->model('setting/event');
+        $this->model_setting_event->addEvent('mds_refresh', 'admin/model/setting/extension/addExtensionInstall/before', 'extension/shipping/mds/refreshInstall');
     }
 
     public function uninstall()
@@ -288,6 +326,9 @@ class ControllerExtensionShippingMds extends Controller
         $this->load->model('extension/shipping/mds');
         $this->model_extension_shipping_mds->dropColumns();
         $this->model_extension_shipping_mds->dropCustomFields();
+
+        $this->load->model('setting/event');
+        $this->model_setting_event->deleteEvent('mds_refresh');
 
         // $this->deleteAssocFiles(); NEEED WORK
     }
