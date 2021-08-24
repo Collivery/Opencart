@@ -168,14 +168,12 @@
                         </label>
                         <div class="col-sm-10">
                             <label class="col-sm- control-label" for="input-cover">
-                                {% set checked = shipping_mds_cover is same as(1) ? 1 : 0 %}
-
                                 {{ text_yes }}
-                                <input type="radio" name="shipping_mds_cover" {{ checked }} value="1"/>
+                                <input type="radio" name="shipping_mds_cover" {{ shipping_mds_cover == "1" ? ' checked' : null }} value="1"/>
                             </label>
                             <label class="col-sm-3 control-label" for="input-cover">
                                 {{ text_no }}
-                                <input type="radio" name="shipping_mds_cover" {{ not checked }} value="0"/>
+                                <input type="radio" name="shipping_mds_cover" {{ shipping_mds_cover == "0" ? ' checked' : null }} value="0"/>
                             </label>
                         </div>
                     </div>
@@ -185,14 +183,12 @@
                         </label>
                         <div class="col-sm-10">
                             <label class="col-sm- control-label" for="input-rica">
-                                {% set checked = shipping_mds_rica is same as(1) ? 1 : 0 %}
-
                                 {{ text_yes }}
-                                <input type="radio" name="shipping_mds_rica" {{ checked }} value="1"/>
+                                <input type="radio" name="shipping_mds_rica" {{ shipping_mds_rica == "1" ? ' checked' : null }} value="1"/>
                             </label>
                             <label class="col-sm-3 control-label" for="input-rica">
                                 {{ text_no }}
-                                <input type="radio" name="shipping_mds_rica" {{ not checked }} value="0"/>
+                                <input type="radio" name="shipping_mds_rica" {{ shipping_mds_rica == "0" ? ' checked' : null }} value="0"/>
                             </label>
                         </div>
                     </div>
