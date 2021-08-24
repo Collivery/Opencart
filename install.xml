@@ -42,17 +42,15 @@
                 <![CDATA[
 
         /** @collivery-config */
-        if ($this->config->get('shipping_mds_status')) {
-            $colliveryLibrary = DIR_SYSTEM.'library/mds/Collivery.php';
-            if (is_file($colliveryLibrary)) {
-                include_once $colliveryLibrary;
-                $collivery = new \Mds\Collivery($this->registry);
-                if ($collivery->authenticate() && $collivery->isAuthError()) {
-                    $this->registry->set('error', ['warning' => 'Collivery.net Shipping Plugin Login Error']);
-                }
-
-                $this->registry->set('collivery', $collivery);
+        $colliveryLibrary = DIR_SYSTEM.'library/mds/Collivery.php';
+        if (is_file($colliveryLibrary)) {
+            include_once $colliveryLibrary;
+            $collivery = new \Mds\Collivery($this->registry);
+            if ($collivery->authenticate() && $collivery->isAuthError()) {
+                $this->registry->set('error', ['warning' => 'Collivery.net Shipping Plugin Login Error']);
             }
+
+            $this->registry->set('collivery', $collivery);
         }
         /** @endcollivery-config */
 
