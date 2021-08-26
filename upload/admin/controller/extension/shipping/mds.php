@@ -34,6 +34,7 @@ class ControllerExtensionShippingMds extends Controller {
 
         $data = $this->language->all();
         $services = $this->collivery->getServices();
+        $collivery_config = $this->collivery->getConfig();
         $data['services'] = $services;
 
         foreach ($services as $key => $service) {
@@ -100,13 +101,13 @@ class ControllerExtensionShippingMds extends Controller {
 
         if (isset($this->request->post['shipping_mds_username'])) {
             $data['shipping_mds_username'] = $this->request->post['shipping_mds_username'];
-        } else {
-            $data['shipping_mds_username'] = $this->config->get('shipping_mds_username');
+        } else{
+            $data['shipping_mds_username'] = ($this->config->get('shipping_mds_username') !== null)? $this->config->get('shipping_mds_username'):$collivery_config->user_email;
         }
         if (isset($this->request->post['shipping_mds_password'])) {
             $data['shipping_mds_password'] = $this->request->post['shipping_mds_password'];
         } else {
-            $data['shipping_mds_password'] = $this->config->get('shipping_mds_password');
+            $data['shipping_mds_password'] = ($this->config->get('shipping_mds_password') !== null)? $this->config->get('shipping_mds_password'):$collivery_config->user_password;
         }
         if (isset($this->request->post['shipping_mds_markup'])) {
             $data['shipping_mds_markup'] = $this->request->post['shipping_mds_markup'];
@@ -129,10 +130,16 @@ class ControllerExtensionShippingMds extends Controller {
             $data['shipping_mds_status'] = $this->config->get('shipping_mds_status');
         }
 
+        if (isset($this->request->post['shipping_mds_is_auto_accept_waybill'])) {
+            $data['shipping_mds_is_auto_accept_waybill'] = $this->request->post['shipping_mds_is_auto_accept_waybill'];
+        } else {
+            $data['shipping_mds_is_auto_accept_waybill'] = ($this->config->get('shipping_mds_is_auto_accept_waybill') !== null)?  $this->config->get('shipping_mds_is_auto_accept_waybill') : '0';
+        }
+
         if (isset($this->request->post['shipping_mds_is_demo'])) {
             $data['shipping_mds_is_demo'] = $this->request->post['shipping_mds_is_demo'];
         } else {
-            $data['shipping_mds_is_demo'] = $this->config->get('shipping_mds_is_demo');
+            $data['shipping_mds_is_demo'] =($this->config->get('shipping_mds_is_demo') !== null)? $this->config->get('shipping_mds_is_demo'):$collivery_config->demo;
         }
         if (isset($this->request->post['shipping_mds_tax_class_id'])) {
             $data['shipping_mds_tax_class_id'] = $this->request->post['shipping_mds_tax_class_id'];
@@ -154,8 +161,29 @@ class ControllerExtensionShippingMds extends Controller {
             $data['shipping_mds_geo_zone_id'] = $this->config->get('shipping_mds_geo_zone_id');
         }
 
-        $data['shipping_mds_is_auto_create_waybill'] = $this->config->get('shipping_mds_is_auto_create_waybill');
-        $data['shipping_mds_is_auto_create_address'] = $this->config->get('shipping_mds_is_auto_create_address');
+        if (isset($this->request->post['shipping_mds_is_auto_create_waybill'])) {
+            $data['shipping_mds_is_auto_create_waybill'] = $this->request->post['shipping_mds_is_auto_create_waybill'];
+        } else {
+            $data['shipping_mds_is_auto_create_waybill'] = ($this->config->get('shipping_mds_is_auto_create_waybill') !== null)?  $this->config->get('shipping_mds_is_auto_create_waybill') : '0';
+        }
+
+        if (isset($this->request->post['shipping_mds_is_auto_create_address'])) {
+            $data['shipping_mds_is_auto_create_address'] = $this->request->post['shipping_mds_is_auto_create_address'];
+        } else {
+            $data['shipping_mds_is_auto_create_address'] = ($this->config->get('shipping_mds_is_auto_create_address') !== null)?  $this->config->get('shipping_mds_is_auto_create_address') : '0';
+        }
+
+        if (isset($this->request->post['shipping_mds_rica'])) {
+            $data['shipping_mds_rica'] = $this->request->post['shipping_mds_rica'];
+        } else {
+            $data['shipping_mds_rica'] = ($this->config->get('shipping_mds_rica') !== null)?  $this->config->get('shipping_mds_rica') : '0';
+        }
+
+        if (isset($this->request->post['shipping_mds_cover'])) {
+            $data['shipping_mds_cover'] = $this->request->post['shipping_mds_cover'];
+        } else {
+            $data['shipping_mds_cover'] =($this->config->get('shipping_mds_cover') !== null)?  $this->config->get('shipping_mds_cover') : '0';
+        }
 
 
         $data['default_collivery_from_addresses'] = $this->collivery->getAddresses();

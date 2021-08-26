@@ -31,13 +31,17 @@ class Collivery
      */
     public function __construct(array $config = [], $cache = null)
     {
-
         $config['cache_dir'] = isset($config['cache_dir']) ? $config['cache_dir'] : basename(__DIR__);
         $this->cache = $cache ?: new Cache($config['cache_dir']);
         $this->cacheEnabled = (bool)(isset($config['enable_cache']) ? $config['enable_cache'] : $this->cacheEnabled);
         $this->log = isset($config['log']) ? $config['log'] : new Log;
 
-        if ((isset($config['demo']) && $config['demo']) || !$config['user_email']) {
+        if(!(isset($config['user_email'])))
+        {
+            $config['demo'] = true;
+        }
+
+        if ((isset($config['demo']) && $config['demo']) ||  !$config['user_email']) {
             $config = array_merge($config, self::$demoAccount);
         }
 
@@ -147,6 +151,13 @@ class Collivery
         }
 
         return $this;
+    }
+    /**
+     * @return object|null
+     */
+    public function getConfig()
+    {
+        return $this->config;
     }
     /**
      * @return bool
