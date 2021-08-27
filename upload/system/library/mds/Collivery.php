@@ -835,7 +835,23 @@ class Collivery
     }
 
     /**
-     * Returns the clients default address
+     * Returns the clients default address and contacts
+     *
+     * @return <int, int, int>[] Address data
+     */
+    private function getDefaultAddress()
+    {
+        $defaultAddressId = $this->getDefaultAddressId();
+
+        return [
+            'address'            => $this->getAddress($defaultAddressId),
+            'default_address_id' => $defaultAddressId,
+            'contacts'           => $this->getContacts($defaultAddressId),
+        ];
+    }
+
+    /**
+     * Returns the clients default address id
      *
      * @return int Address ID
      */
