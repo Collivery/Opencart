@@ -314,7 +314,7 @@
 
             $data['collivery_services'] = $this->collivery->getServices();
 
-            $order = $this->db->query('select * from ' . DB_PREFIX . 'order where order_id="' . $this->db->escape($data['order_id'].'"') )->row;
+            $order = $this->db->query('select * from ' . DB_PREFIX . 'order where order_id="' . $this->db->escape($data['order_id']).'"')->row;
 
             foreach ($order as $column => $column_value){
                 $data[$column] = $column_value;
