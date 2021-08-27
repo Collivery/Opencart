@@ -251,12 +251,10 @@ class Collivery
 
     public function logBacktrace($message, array $backtrace)
     {
-        ob_start();
-        debug($backtrace);
-        $a = ob_get_clean();
+        $extra = debug($backtrace);
 
         // Use the mds log class, writes to a separate file
-        (new Log($this->config->log_dir))->write($message.PHP_EOL.$a);
+        (new Log($this->config->log_dir))->write($message.PHP_EOL.$extra);
     }
 
     public function compressBacktraceFiles()
