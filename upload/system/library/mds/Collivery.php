@@ -1,117 +1,143 @@
 <?php
+/** @noinspection PhpUnused */
+/** @noinspection PhpUnusedPrivateMethodInspection */
+/** @noinspection PhpMultipleClassDeclarationsInspection */
 
 namespace Mds;
 
-use SoapClient;
-use SoapFault;
+require_once 'debug.php';
 
 class Collivery
 {
+    const PLUGIN_VERSION = '1.2.0';
     const ENDPOINT = 'https://collivery.co.za/wsdl/v2';
     const CACHE_PREFIX = 'collivery_net.';
 
-    private static $demoAccount = ['user_email' => 'api@collivery.co.za', 'user_password' => 'api123'];
+    public static $demoAccount = ['user_email' => 'api@collivery.co.za', 'user_password' => 'api123'];
 
     protected $token;
     protected $client;
+    /** @var object|\stdClass */
     protected $config;
     protected $errors = [];
     protected $cacheEnabled = true;
-    protected $default_address_id;
+    protected $auth_data = [];
     protected $client_id;
     protected $user_id;
     protected $log;
     protected $cache;
 
-    /**
-     * Setup class with basic Config
-     *
-     * @param array $config Configuration Array
-     * @param       $cache
-     */
-    public function __construct(array $config = [], $cache = null)
+    public function __construct(\Registry $registry)
     {
-        $config['cache_dir'] = isset($config['cache_dir']) ? $config['cache_dir'] : basename(__DIR__);
-        $this->cache = $cache ?: new Cache($config['cache_dir']);
-        $this->cacheEnabled = (bool)(isset($config['enable_cache']) ? $config['enable_cache'] : $this->cacheEnabled);
-        $this->log = isset($config['log']) ? $config['log'] : new Log;
+        /** @var \Config $config */
+        $config = $registry->get('config');
+        /** @var \Log $log */
+        $log = $registry->get('log');
+        /** @var \Request $request */
+        $request = $registry->get('request');
 
-        if(!(isset($config['user_email'])))
-        {
-            $config['demo'] = true;
+        $username = $config->get('shipping_mds_username') ?: '';
+        $password = $config->get('shipping_mds_password') ?: '';
+        if ($config->has('shipping_mds_is_demo')) {
+            $demo = (bool) $config->get('shipping_mds_is_demo');
+        } else {
+            $demo = true;
         }
 
-        if ((isset($config['demo']) && $config['demo']) ||  !$config['user_email']) {
-            $config = array_merge($config, self::$demoAccount);
+        $cacheDir = DIR_CACHE.'mds/';
+        $logDir   = DIR_LOGS.'mds/';
+        $appUrl   = $request->server['HTTP_HOST'];
+
+        $this->cache        = new Cache($cacheDir);
+        $this->cacheEnabled = true;
+        $this->log          = new Log($logDir);
+
+        if ($demo || ! $username) {
+            $demo     = true;
+            $username = self::$demoAccount['user_email'];
+            $password = self::$demoAccount['user_password'];
         }
 
-        $this->config = (object)$config;
+        $this->config = (object)[
+            'log'           => $log,
+            'cache_dir'     => DIR_CACHE.'mds/',
+            'log_dir'       => DIR_LOGS.'mds/',
+            'app_name'      => 'MDS Collivery.net',
+            'app_version'   => '1.2.0',
+            'app_host'      => 'Opencart '.VERSION,
+            'app_url'       => $appUrl,
+            'user_email'    => $username,
+            'user_password' => $password,
+            'demo'          => $demo,
+        ];
     }
+
     /**
      * Any method called from this class goes via the magic call
      * We want to make sure that we clear all errors that were generated
-     * before before calling another method, we also want to ensure that
-     * Soap client is initialized before calling any method from it
+     * before calling another method, we also want to ensure that
+     * Soap client is initialized before calling any method from it.
      * We also want to make sure that a collivery client is authenticated
-     *if the conditions above do not succeed, return errors stating reason
+     * if the conditions above do not succeed, return errors stating reason
      * for failure for each
      *
      * @param $method
      * @param $args
      *
-     * @return array|mixed
-     * @throws \ReflectionException
+     * @return array
      */
     public function __call($method, $args)
     {
         $this->clearErrors(); //clear errors
 
-        !$this->client && $this->init();
+        ! $this->client && $this->init();
 
-        !$this->token && $this->authenticate();
+        ! $this->token && $this->authenticate();
 
         return $this->getErrors() ?: call_user_func_array([$this, $method], $args);
     }
+
     /**
      * @return $this
      */
     public function init()
     {
-        if (!$this->client || !($this->client instanceof SoapClient)) {
+        if ( ! ($this->client instanceof \SoapClient)) {
             try {
-                $this->client = new SoapClient( // Setup the soap client
+                $this->client = new \SoapClient( // Set up the soap client
                     self::ENDPOINT, // URL to WSDL File
                     ['cache_wsdl' => WSDL_CACHE_NONE] // Don't cache the WSDL file
                 );
-            } catch (SoapFault $e) {
-                $this->catchSoapFault($e);
+            } catch (\Exception $e) {
+                $this->catchException($e);
             }
         }
 
         return $this;
     }
+
     /**
      * @return $this
      */
     public function authenticate()
     {
         $cacheKey = 'auth';
-        $auth = $this->getCache($cacheKey);
+        $auth     = $this->getCache($cacheKey);
 
         $isSameUser = $auth &&
-            isset($auth['user_email'], $this->config->user_email) &&
-            !strcasecmp($this->config->user_email, $auth['user_email']);
+                      isset($auth['user_email'], $this->config->user_email) &&
+                      ! strcasecmp($this->config->user_email, $auth['user_email']);
 
         if ($isSameUser) {
-            $this->default_address_id = $auth['default_address_id'];
+            $this->auth_data = $auth;
             $this->client_id = $auth['client_id'];
-            $this->user_id = $auth['user_id'];
-            $this->token = $auth['token'];
+            $this->user_id   = $auth['user_id'];
+            $this->token     = $auth['token'];
 
             return $this;
         }
 
-        $user_email = strtolower($this->config->user_email);
+        $user_email    = strtolower($this->config->user_email);
         $user_password = $this->config->user_password;
 
         $config = [
@@ -119,46 +145,37 @@ class Collivery
             'version' => $this->config->app_version,
             'host'    => $this->config->app_host,
             'url'     => $this->config->app_url,
-            'lang'    => 'PHP ' . PHP_VERSION,
+            'lang'    => 'PHP '.PHP_VERSION,
         ];
 
-        !$this->client && $this->init();
+        ! $this->client && $this->init();
         if ($this->hasErrors()) {
             return $this;
         }
 
         try {
-
             $authenticate = $this->client->authenticate($user_email, $user_password, $this->token, $config);
 
             if ($authenticate) {
+                $this->auth_data = $authenticate;
 
                 if ($this->cacheEnabled) {
                     $this->setCache($cacheKey, $authenticate, 59);
                 }
 
-                $this->default_address_id = $authenticate['default_address_id'];
-                $this->client_id = $authenticate['client_id'];
-                $this->user_id = $authenticate['user_id'];
-                $this->token = $authenticate['token'];
+                $this->client_id          = $authenticate['client_id'];
+                $this->user_id            = $authenticate['user_id'];
+                $this->token              = $authenticate['token'];
 
                 return $this;
             }
-        } catch (SoapFault $exception) {
-            $this->catchSoapFault($exception);
-        } catch (\ReflectionException $e) {
-            die($e->getMessage());
+        } catch (\Exception $e) {
+            $this->catchException($e);
         }
 
         return $this;
     }
-    /**
-     * @return object|null
-     */
-    public function getConfig()
-    {
-        return $this->config;
-    }
+
     /**
      * @return bool
      */
@@ -166,6 +183,7 @@ class Collivery
     {
         return array_key_exists('auth_error', $this->getErrors());
     }
+
     /**
      * @return $this
      */
@@ -175,33 +193,47 @@ class Collivery
 
         return $this;
     }
+
     /**
-     * @param SoapFault $e
+     * Create a stacktrace as best we can
+     *
+     * @param \Exception $e
      */
-    public function catchSoapFault(SoapFault $e)
+    public function catchException(\Exception $e)
     {
-        $this->setError($e->faultcode, $e->faultstring);
+        if ($e instanceof \SoapFault) {
+            $this->setError($e->faultcode, $e->faultstring);
+        } else {
+            $this->setError($e->getCode(), $e->getMessage());
+        }
+        $backtrace = debug_backtrace(DEBUG_BACKTRACE_PROVIDE_OBJECT, 6);
+        // remove the call to `catchException()` - that's not useful in the stacktrace
+        array_shift($backtrace);
+
+        $this->logBacktrace($e->getMessage(), $backtrace);
     }
+
     /**
-     * @param        $id
-     * @param string $text
+     * @param string|int|array $id
+     * @param string|null $text
      *
      * @return $this
      */
     public function setError($id, $text = '')
     {
-        if (is_array($id) && !empty($id)) {
+        if (is_array($id) && ! empty($id)) {
             foreach ($id as $key => $val) {
                 $this->setError($key, $val);
             }
         } elseif (is_string($id) || is_int($id)) {
             $this->errors[$id] = $text;
-            $json = json_encode(['id' => $id, 'message' => $text]);
+            $json              = json_encode(['id' => $id, 'message' => $text]);
             $this->log($json);
         }
 
         return $this;
     }
+
     /**
      * @param $message
      */
@@ -214,23 +246,34 @@ class Collivery
 
             return;
         }
-        if (property_exists($this, 'log')) {
-
-            try {
-                $reflectionClass = new \ReflectionClass($this->log);
-                $message = "collivery_net_error: {$message}"; //message to be logged
-
-                foreach (['write', 'message'] as $method) {
-                    if ($reflectionClass->hasMethod($method)) {
-                        $this->log->{$method}($message);
-                        break; //exit
-                    }
-                }
-            } catch (\ReflectionException $e) {
-                die($e->getMessage());
-            }
-        }
+        $this->log->write("collivery_net_error: {$message}");
     }
+
+    public function logBacktrace($message, array $backtrace)
+    {
+        $extra = debug($backtrace);
+
+        // Use the mds log class, writes to a separate file
+        (new Log($this->config->log_dir))->write($message.PHP_EOL.$extra);
+    }
+
+    public function compressBacktraceFiles()
+    {
+        $zip      = new \ZipArchive();
+        $filename = sys_get_temp_dir()."/mds-errors.zip";
+        if ( ! $zip->open($filename, \ZipArchive::CREATE)) {
+            return;
+        }
+
+        foreach (glob($this->config->log_dir.'/*.log') as $file) {
+            $zip->addFile($file, basename($file));
+        }
+
+        $zip->close();
+
+        return $filename;
+    }
+
     /**
      * @param $key
      *
@@ -246,6 +289,7 @@ class Collivery
 
         return null;
     }
+
     /**
      * @param $key
      *
@@ -253,8 +297,9 @@ class Collivery
      */
     public function getCacheKey($key)
     {
-        return md5(strtolower(self::CACHE_PREFIX . str_replace(self::CACHE_PREFIX, '', $key)));
+        return md5(strtolower(self::CACHE_PREFIX.str_replace(self::CACHE_PREFIX, '', $key)));
     }
+
     /**
      * @return bool
      */
@@ -262,8 +307,9 @@ class Collivery
     {
         $errors = $this->getErrors();
 
-        return !empty($errors);
+        return ! empty($errors);
     }
+
     /**
      * @return array
      */
@@ -271,12 +317,13 @@ class Collivery
     {
         return $this->errors;
     }
+
     /**
      * @param     $key
      * @param     $value
-     * @param int $ttl
+     * @param int $ttl in Minutes
      *
-     * @return mixed
+     * @return bool
      */
     public function setCache($key, $value, $ttl = 1440)
     {
@@ -284,15 +331,17 @@ class Collivery
 
         return $this->cache->put($key, $value, $ttl);
     }
+
     /**
      * @return array
      */
     public function getClient()
     {
-        !$this->client && $this->init();
+        ! $this->client && $this->init();
 
         return $this->errorsOrResponse($this->client);
     }
+
     /**
      * @param $key
      *
@@ -304,8 +353,9 @@ class Collivery
             $this->cache->forget($key);
         }
 
-        return !$this->getCache($key);
+        return ! $this->getCache($key);
     }
+
     /**
      * @return $this
      */
@@ -315,6 +365,7 @@ class Collivery
 
         return $this;
     }
+
     /**
      * @return $this
      */
@@ -324,6 +375,12 @@ class Collivery
 
         return $this;
     }
+
+    public function clearCache()
+    {
+        $this->cache->clear();
+    }
+
     /**
      * @param $results
      *
@@ -331,12 +388,13 @@ class Collivery
      */
     public function errorsOrResponse($results = null)
     {
-        if (!$results || $this->hasErrors()) {
+        if ( ! $results || $this->hasErrors()) {
             return $this->getErrors();
         }
 
         return $results;
     }
+
     /**
      * @param       $method
      * @param array $params
@@ -346,12 +404,12 @@ class Collivery
     public function sendSoapRequest($method, array $params = [])
     {
         //We need to pass a token to the methods in the client
-        if (!in_array($this->token, $params, true)) {
+        if ( ! in_array($this->token, $params, true)) {
             $params[] = $this->token;
         }
 
         //initialize client and check for errors
-        !$this->client && $this->init();
+        ! $this->client && $this->init();
 
         //Is there anything wrong with the client?
         if ($this->hasErrors()) {
@@ -370,32 +428,33 @@ class Collivery
         try {
             // We cannot use (...$params) as we need to support 5.4
             return call_user_func_array([$this->client, trim($method)], $params);
-        } catch (SoapFault $e) {
-            //oops, something went wrong from the client, what is it?
-            $this->catchSoapFault($e);
+        } catch (\Exception $e) {
+            $this->catchException($e);
         }
 
         //What was wrong with the soap client?
         return $this->errorsOrResponse();
     }
+
     /**
      * @param null $town_id
      *
-     * @return array|mixed|null
+     * @return array|null
      */
     private function getAllSuburbs($town_id = null)
     {
         return $this->getSuburbs($town_id);
     }
+
     /**
      * @param $town_id
      *
-     * @return array|mixed|null
+     * @return array|null
      */
     private function getSuburbs($town_id)
     {
-        $cacheKey = 'suburbs.' . ($town_id ?: '0');
-        $suburbs = $this->getCache($cacheKey);
+        $cacheKey = 'suburbs.'.($town_id ?: '0');
+        $suburbs  = $this->getCache($cacheKey);
 
         if ($suburbs) {
             return $suburbs;
@@ -406,7 +465,7 @@ class Collivery
             $this->setError($result['error_id'], $result['error']);
         }
 
-        if (!isset($result['suburbs'])) {
+        if ( ! isset($result['suburbs'])) {
             $this->setError('no_results', 'No suburbs returned by the server');
         }
 
@@ -421,14 +480,15 @@ class Collivery
 
         return $this->errorsOrResponse($suburbs);
     }
+
     /**
      * @param array $filter
      *
-     * @return array|mixed|null
+     * @return array|null
      */
     public function getAddresses(array $filter = [])
     {
-        $cacheKey = 'addresses.' . $this->client_id;
+        $cacheKey  = 'addresses.'.$this->client_id;
         $addresses = $this->getCache($cacheKey);
         if ($addresses) {
             return $addresses;
@@ -440,28 +500,29 @@ class Collivery
             $this->setError($result['error_id'], $result['error']);
         }
 
-        if (!isset($result['addresses'])) {
+        if ( ! isset($result['addresses'])) {
             $this->setError('result_unexpected', 'No address_id returned.');
-        }
+            $addresses = [];
+        } else {
+            $addresses = $result['addresses'];
 
-        $addresses = $result['addresses'];
-
-        if ($this->cacheEnabled && empty($filter)) {
-            $this->setCache($cacheKey, $addresses);
+            if ($this->cacheEnabled && empty($filter)) {
+                $this->setCache($cacheKey, $addresses);
+            }
         }
 
         return $this->errorsOrResponse($addresses);
     }
+
     /**
      * @param $colliveryId
      *
-     * @return array|mixed|null
-     * @throws \ReflectionException
+     * @return array|null
      */
     private function getPod($colliveryId)
     {
-        $cacheKey = 'pod.' . $this->client_id . '.' . $colliveryId;
-        $pod = $this->getCache($cacheKey);
+        $cacheKey = 'pod.'.$this->client_id.'.'.$colliveryId;
+        $pod      = $this->getCache($cacheKey);
         if ($pod) {
             return $pod;
         }
@@ -476,7 +537,7 @@ class Collivery
             return $this->errorsOrResponse();
         }
 
-        if (!isset($result['pod'])) {
+        if ( ! isset($result['pod'])) {
             $this->setError('no_pod', 'No POD data returned');
 
             return $this->errorsOrResponse();
@@ -490,6 +551,7 @@ class Collivery
 
         return $this->errorsOrResponse($pod);
     }
+
     /**
      * Returns the status tracking detail of a given Waybill number.
      * If the collivery is still active, the estimated time of delivery
@@ -502,8 +564,8 @@ class Collivery
      */
     private function getStatus($colliveryId)
     {
-        $cacheKey = 'status.' . $this->client_id . $colliveryId;
-        $status = $this->getCache($cacheKey);
+        $cacheKey = 'status.'.$this->client_id.$colliveryId;
+        $status   = $this->getCache($cacheKey);
         if ($status) {
             return $status;
         }
@@ -514,7 +576,7 @@ class Collivery
             $this->setError($result['error_id'], $result['error']);
         }
 
-        if (!isset($result['status_id'])) {
+        if ( ! isset($result['status_id'])) {
             $this->setError('result_unexpected', 'No result returned.');
         }
 
@@ -526,50 +588,50 @@ class Collivery
 
         return $this->errorsOrResponse($result);
     }
+
     /**
      * @param array $data
      *
      * @return array
-     * @throws \ReflectionException
      */
     private function addAddress(array $data)
     {
-        $this->errors = [];
+        $this->errors   = [];
         $location_types = $this->getLocationTypes();
-        $towns = $this->getTowns();
-        $suburbs = $this->getSuburbs($data['town_id']);
+        $towns          = $this->getTowns();
+        $suburbs        = $this->getSuburbs($data['town_id']);
 
-        if (!isset($data['location_type'])) {
+        if ( ! isset($data['location_type'])) {
             $this->setError('missing_data', 'location_type not set.');
-        } elseif (!isset($location_types[$data['location_type']])) {
+        } elseif ( ! isset($location_types[$data['location_type']])) {
             $this->setError('invalid_data', 'Invalid location_type.');
         }
 
-        if (!isset($data['town_id'])) {
+        if ( ! isset($data['town_id'])) {
             $this->setError('missing_data', 'town_id not set.');
-        } elseif (!isset($towns[$data['town_id']])) {
+        } elseif ( ! isset($towns[$data['town_id']])) {
             $this->setError('invalid_data', 'Invalid town_id.');
         }
 
-        if (!isset($data['suburb_id'])) {
+        if ( ! isset($data['suburb_id'])) {
             $this->setError('missing_data', 'suburb_id not set.');
-        } elseif (!isset($suburbs[$data['suburb_id']])) {
+        } elseif ( ! isset($suburbs[$data['suburb_id']])) {
             $this->setError('invalid_data', 'Invalid suburb_id.');
         }
 
-        if (!isset($data['street'])) {
+        if ( ! isset($data['street'])) {
             $this->setError('missing_data', 'street not set.');
         }
 
-        if (!isset($data['full_name'])) {
+        if ( ! isset($data['full_name'])) {
             $this->setError('missing_data', 'full_name not set.');
         }
 
-        if (!isset($data['phone']) and !isset($data['cellphone'])) {
+        if ( ! isset($data['phone']) and ! isset($data['cellphone'])) {
             $this->setError('missing_data', 'Please supply ether a phone or cellphone number...');
         }
 
-        if (!$this->hasErrors()) {
+        if ( ! $this->hasErrors()) {
             $result = $this->sendSoapRequest('add_address', [$data]);
 
             if (isset($result['error_id'])) {
@@ -578,17 +640,20 @@ class Collivery
                 return $this->errorsOrResponse();
             }
 
-            if (!isset($result['address_id'])) {
+            if ( ! isset($result['address_id'])) {
                 $error = json_encode($result);
-                $this->setError('error_adding_address',
-                    "The address could not be added, data validated successfully, error ID not set $error");
+                $this->setError(
+                    'error_adding_address',
+                    "The address could not be added, data validated successfully, error ID not set $error"
+                );
 
                 return $this->errorsOrResponse();
             }
 
             $addressId = $result['address_id'];
             if (isset($result['contact_id'])) {
-                $contactId = current($this->getContacts($addressId));
+                $contact   = current($this->getContacts($addressId));
+                $contactId = $contact['contact_id'];
 
                 return $this->errorsOrResponse(['address_id' => $addressId, 'contact_id' => $contactId]);
             }
@@ -599,12 +664,13 @@ class Collivery
 
         return $this->errorsOrResponse();
     }
+
     /**
-     * @return array|mixed|null
+     * @return array|null
      */
     private function getLocationTypes()
     {
-        $cacheKey = 'location_types';
+        $cacheKey      = 'location_types';
         $locationTypes = $this->getCache($cacheKey);
         if ($locationTypes) {
             return $locationTypes;
@@ -616,7 +682,7 @@ class Collivery
             $this->setError($result['error_id'], $result['error']);
         }
 
-        if (!isset($result['results'])) {
+        if ( ! isset($result['results'])) {
             $this->setError('no_results', 'No results returned');
         }
 
@@ -628,15 +694,16 @@ class Collivery
 
         return $this->errorsOrResponse($locationTypes);
     }
+
     /**
      * @param string $country
-     * @param null   $province
+     * @param null $province
      *
-     * @return array|mixed|null
+     * @return array|null
      */
     private function getTowns($country = 'zaf', $province = null)
     {
-        $cacheKey = 'towns.' . strtolower($country . ($province ? ".{$province}" : ''));
+        $cacheKey = 'towns.'.strtolower($country.($province ? ".{$province}" : ''));
 
         $towns = $this->getCache($cacheKey);
 
@@ -650,7 +717,7 @@ class Collivery
             $this->setError($result['error_id'], $result['error']);
         }
 
-        if (!isset($result['towns'])) {
+        if ( ! isset($result['towns'])) {
             $this->setError('no_results', 'No towns returned by the server');
         }
 
@@ -662,15 +729,15 @@ class Collivery
 
         return $this->errorsOrResponse($towns);
     }
+
     /**
      * @param $address_id
      *
-     * @return array|mixed|null
-     * @throws \ReflectionException
+     * @return array|null
      */
     private function getContacts($address_id)
     {
-        $cacheKey = 'contacts.' . $this->client_id . '.' . $address_id;
+        $cacheKey = 'contacts.'.$this->client_id.'.'.$address_id;
         $contacts = $this->getCache($cacheKey);
         if ($contacts) {
             return $contacts;
@@ -693,35 +760,35 @@ class Collivery
 
         return $this->errorsOrResponse($contacts);
     }
+
     /**
      * @param array $data
      *
      * @return $this|array
-     * @throws \ReflectionException
      */
     private function addContact(array $data)
     {
-        if (!isset($data['address_id'])) {
+        if ( ! isset($data['address_id'])) {
             $this->setError('missing_data', 'address_id not set.');
-        } elseif (!is_array($this->getAddress($data['address_id']))) {
+        } elseif ( ! is_array($this->getAddress($data['address_id']))) {
             $this->setError('invalid_data', 'Invalid address_id.');
         }
 
-        if (!isset($data['full_name'])) {
+        if ( ! isset($data['full_name'])) {
             $this->setError('missing_data', 'full_name not set.');
         }
 
-        if (!isset($data['phone']) && !isset($data['cellphone'])) {
+        if ( ! isset($data['phone']) && ! isset($data['cellphone'])) {
             $this->setError('missing_data', 'Please supply ether a phone or cellphone number...');
         }
 
-        if (!isset($data['email'])) {
+        if ( ! isset($data['email'])) {
             $this->setError('missing_data', 'email not set.');
         }
 
         $result = $this->sendSoapRequest('add_contact', [$data]);
 
-        $this->removeCache('addresses.' . $this->client_id);
+        $this->removeCache('addresses.'.$this->client_id);
 
         if (isset($result['error_id'])) {
             $this->setError($result['error_id'], $result['error']);
@@ -733,16 +800,16 @@ class Collivery
 
         return $this;
     }
+
     /**
      * @param $address_id
      *
-     * @return array|mixed|null
-     * @throws \ReflectionException
+     * @return array|null
      */
     private function getAddress($address_id)
     {
-        $cacheKey = 'address.' . $this->client_id . '.' . ($address_id ?: '0');
-        $address = $this->getCache($cacheKey);
+        $cacheKey = 'address.'.$this->client_id.'.'.($address_id ?: '0');
+        $address  = $this->getCache($cacheKey);
         if ($address) {
             return $address;
         }
@@ -764,29 +831,52 @@ class Collivery
 
         return $this->errorsOrResponse($address);
     }
+
     /**
-     * @return array
-     * @throws \ReflectionException
+     * Returns the clients default address and contacts
+     *
+     * @return <int, int, int>[] Address data
      */
     private function getDefaultAddress()
     {
-        $default_address_id = $this->getDefaultAddressId();
+        $defaultAddressId = $this->getDefaultAddressId();
 
         return [
-            'address'            => $this->getAddress($default_address_id),
-            'default_address_id' => $default_address_id,
-            'contacts'           => $this->getContacts($default_address_id),
+            'address'            => $this->getAddress($defaultAddressId),
+            'default_address_id' => $defaultAddressId,
+            'contacts'           => $this->getContacts($defaultAddressId),
         ];
     }
+
     /**
-     * Returns the clients default address
+     * Returns the clients default address id
      *
      * @return int Address ID
      */
-    private function getDefaultAddressId()
+    public function getDefaultAddressId()
     {
-        return $this->default_address_id;
+        // Ensure we have the `default_address_id` set from API
+        // We will use that if there is no locally chosen Setting for it
+        if (empty($this->auth_data)) {
+            $this->authenticate();
+        }
+
+        $cacheKey = 'default_address_id.'.$this->client_id;
+
+        return (int) $this->getCache($cacheKey) ?: $this->auth_data['default_address_id'];
     }
+
+    /**
+     * Stores the shop's locally chosen default address id
+     */
+    public function setDefaultAddressId(int $defaultAddressId)
+    {
+        $cacheKey = 'default_address_id.'.$this->client_id;
+        $oneCentury = 52594876;
+
+        $this->setCache($cacheKey, $defaultAddressId, $oneCentury);
+    }
+
     /**
      * Validate Collivery
      * Returns the validated data array of all details pertaining to a
@@ -800,48 +890,51 @@ class Collivery
      * @param array $data Properties of the new Collivery
      *
      * @return array         The validated data
-     * @throws \ReflectionException
      */
     private function validate(array $data)
     {
-        $contacts_from = $this->getContacts($data['collivery_from']);
-        $contacts_to = $this->getContacts($data['collivery_to']);
-        $parcel_types = $this->getParcelTypes();
-        $services = $this->getServices();
+        if ( ! isset($data['collivery_from']) ) {
+            $data['collivery_from'] = $this->getDefaultAddressId();
+        }
 
-        if (!isset($data['collivery_from'])) {
+        $contacts_from = $this->getContacts($data['collivery_from']);
+        $contacts_to   = $this->getContacts($data['collivery_to']);
+        $parcel_types  = $this->getParcelTypes();
+        $services      = $this->getServices();
+
+        if ( ! isset($data['collivery_from'])) {
             $this->setError('missing_data', 'collivery_from not set.');
-        } elseif (!is_array($this->getAddress($data['collivery_from']))) {
+        } elseif ( ! is_array($this->getAddress($data['collivery_from']))) {
             $this->setError('invalid_data', 'Invalid Address ID for: collivery_from.');
         }
 
-        if (!isset($data['contact_from'])) {
+        if ( ! isset($data['contact_from'])) {
             $this->setError('missing_data', 'contact_from not set.');
-        } elseif (!isset($contacts_from[$data['contact_from']])) {
+        } elseif ( ! isset($contacts_from[$data['contact_from']])) {
             $this->setError('invalid_data', 'Invalid Contact ID for: contact_from.');
         }
 
-        if (!isset($data['collivery_to'])) {
+        if ( ! isset($data['collivery_to'])) {
             $this->setError('missing_data', 'collivery_to not set.');
-        } elseif (!is_array($this->getAddress($data['collivery_to']))) {
+        } elseif ( ! is_array($this->getAddress($data['collivery_to']))) {
             $this->setError('invalid_data', 'Invalid Address ID for: collivery_to.');
         }
 
-        if (!isset($data['contact_to'])) {
+        if ( ! isset($data['contact_to'])) {
             $this->setError('missing_data', 'contact_to not set.');
-        } elseif (!isset($contacts_to[$data['contact_to']])) {
+        } elseif ( ! isset($contacts_to[$data['contact_to']])) {
             $this->setError('invalid_data', 'Invalid Contact ID for: contact_to.');
         }
 
-        if (!isset($data['collivery_type'])) {
+        if ( ! isset($data['collivery_type'])) {
             $this->setError('missing_data', 'collivery_type not set.');
-        } elseif (!isset($parcel_types[$data['collivery_type']])) {
+        } elseif ( ! isset($parcel_types[$data['collivery_type']])) {
             $this->setError('invalid_data', 'Invalid collivery_type.');
         }
 
-        if (!isset($data['service'])) {
+        if ( ! isset($data['service'])) {
             $this->setError('missing_data', 'service not set.');
-        } elseif (!isset($services[$data['service']])) {
+        } elseif ( ! isset($services[$data['service']])) {
             $this->setError('invalid_data', 'Invalid service.');
         }
 
@@ -854,18 +947,19 @@ class Collivery
             $this->setError($result['error_id'], $result['error']);
         }
 
-        if (!$result) {
+        if ( ! $result) {
             $this->setError('result_unexpected', 'No result returned.');
         }
 
         return $this->errorsOrResponse($result);
     }
+
     /**
      * @return array|null
      */
     private function getParcelTypes()
     {
-        $cacheKey = 'parcel_types';
+        $cacheKey   = 'parcel_types';
         $parcelType = $this->getCache($cacheKey);
         if ($this->cacheEnabled && $parcelType) {
             return $parcelType;
@@ -883,9 +977,9 @@ class Collivery
 
         return $this->errorsOrResponse($result);
     }
+
     /**
      * @return array
-     * @throws \ReflectionException
      */
     private function getServices()
     {
@@ -897,7 +991,7 @@ class Collivery
         }
 
         $result = $this->sendSoapRequest('get_services');
-        if (!isset($result['services'])) {
+        if ( ! isset($result['services'])) {
             $this->setError('No data return', 'Could not get services');
 
             return $this->errorsOrResponse();
@@ -910,6 +1004,7 @@ class Collivery
 
         return $this->errorsOrResponse($services);
     }
+
     /**
      * @param array $data
      *
@@ -923,6 +1018,7 @@ class Collivery
 
         return $this->getErrors();
     }
+
     /**
      * @param array $data
      *
@@ -930,88 +1026,94 @@ class Collivery
      */
     private function validateGetPriceData(array $data = [])
     {
-        if (!isset($data['collivery_from']) && !isset($data['from_town_id'], $data['from_location_type'])) {
+        if ( ! isset($data['collivery_from']) && ! isset($data['from_town_id'], $data['from_location_type'])) {
             $this->setError('missing_data', 'Please set collection address');
         }
-        if (!isset($data['collivery_to']) && !isset($data['to_town_id'], $data['to_location_type'])) {
+        if ( ! isset($data['collivery_to']) && ! isset($data['to_town_id'], $data['to_location_type'])) {
             $this->setError('missing_data', 'Please set delivery address');
         }
-        if (!isset($data['collivery_type'])) {
+        if ( ! isset($data['collivery_type'])) {
             $this->setError('missing_data', 'Please set the collivery type');
         }
-        if (!isset($data['rica'])) {
+        if ( ! isset($data['rica'])) {
             $this->setError('missing_data', 'Please set rica');
         }
-        if (!isset($data['parcels'])) {
+        if ( ! isset($data['parcels'])) {
             $this->setError('missing_data', 'Parcel data is required to get a price');
         }
-        if (!isset($data['service'])) {
+        if ( ! isset($data['service'])) {
             $this->setError('missing_data', 'Service not set.');
         }
 
         return empty($this->errors);
     }
+
     /**
      * @param array $data
      *
-     * @return array|mixed
-     * @throws \ReflectionException
+     * @return array
+     * @throws ColliveryException
      */
     private function addCollivery(array $data)
     {
         $contacts_from = $this->getContacts($data['collivery_from']);
-        $contacts_to = $this->getContacts($data['collivery_to']);
-        $parcel_types = $this->getParcelTypes();
-        $services = $this->getServices();
-        $errors = [];
+        $contacts_to   = $this->getContacts($data['collivery_to']);
+        $parcel_types  = $this->getParcelTypes();
+        $services      = $this->getServices();
+        $errors        = [];
 
-        if (!isset($data['collivery_from'])) {
+        if ( ! isset($data['collivery_from'])) {
             $errors['missing_data'] = 'collivery_from not set.';
-        } elseif (!is_array($this->getAddress($data['collivery_from']))) {
+        } elseif ( ! is_array($this->getAddress($data['collivery_from']))) {
             $errors['invalid_data'] = 'Invalid Address ID for: collivery_from.';
         }
 
-        if (!isset($data['contact_from'])) {
+        if ( ! isset($data['contact_from'])) {
             $errors['missing_data'] = 'contact_from not set.';
-        } elseif (!isset($contacts_from[$data['contact_from']])) {
+        } elseif ( ! isset($contacts_from[$data['contact_from']])) {
             $errors['invalid_data'] = 'Invalid Contact ID for: contact_from.';
         }
 
-        if (!isset($data['collivery_to'])) {
+        if ( ! isset($data['collivery_to'])) {
             $errors['missing_data'] = 'collivery_to not set.';
-        } elseif (!is_array($this->getAddress($data['collivery_to']))) {
+        } elseif ( ! is_array($this->getAddress($data['collivery_to']))) {
             $errors['invalid_data'] = 'Invalid Address ID for: collivery_to.';
         }
 
-        if (!isset($data['contact_to'])) {
+        if ( ! isset($data['contact_to'])) {
             $errors['missing_data'] = 'contact_to not set.';
-        } elseif (!isset($contacts_to[$data['contact_to']])) {
+        } elseif ( ! isset($contacts_to[$data['contact_to']])) {
             $errors['invalid_data'] = 'Invalid Contact ID for: contact_to.';
         }
 
-        if (!isset($data['collivery_type'])) {
+        if ( ! isset($data['collivery_type'])) {
             $errors['missing_data'] = 'collivery_type not set.';
-        } elseif (!isset($parcel_types[$data['collivery_type']])) {
+        } elseif ( ! isset($parcel_types[$data['collivery_type']])) {
             $errors['invalid_data'] = 'Invalid collivery_type.';
         }
 
-        if (!isset($data['service'])) {
+        if ( ! isset($data['service'])) {
             $errors['missing_data'] = 'service not set.';
-        } elseif (!isset($services[$data['service']])) {
+        } elseif ( ! isset($services[$data['service']])) {
             $errors['invalid_data'] = 'Invalid service.';
         }
         if ($errors) {
-            return $this->setError($errors);
+            $this->setError($errors);
         }
 
         $result = $this->sendSoapRequest('add_collivery', [$data]);
 
         if (isset($result['error_id'])) {
-            return $this->setError($result['error_id'], $result['error']);
+            $this->setError($result['error_id'], $result['error']);
+        }
+
+        if ( ! empty($this->errors)) {
+            throw new \Mds\ColliveryException(implode($this->getErrors()));
         }
 
         return $result['collivery_id'];
     }
+
     /**
      * @param $colliveryId
      *
@@ -1037,6 +1139,7 @@ class Collivery
 
         return ['status' => $result['result']];
     }
+
     /**
      * @param $waybillId
      *
@@ -1082,8 +1185,8 @@ class Cache
      */
     protected function load($name)
     {
-        if (!isset($this->cache[$name])) {
-            if (file_exists($this->cache_dir . $name) && $content = file_get_contents($this->cache_dir . $name)) {
+        if ( ! isset($this->cache[$name])) {
+            if (file_exists($this->cache_dir.$name) && $content = file_get_contents($this->cache_dir.$name)) {
                 $this->cache[$name] = json_decode($content, true);
 
                 return $this->cache[$name];
@@ -1097,15 +1200,15 @@ class Cache
 
     protected function create_dir($dir_array)
     {
-        if (!is_array($dir_array)) {
+        if ( ! is_array($dir_array)) {
             $dir_array = explode('/', $this->cache_dir);
         }
         array_pop($dir_array);
         $dir = implode('/', $dir_array);
 
-        if ($dir !== '' && !is_dir($dir)) {
+        if ($dir !== '' && ! is_dir($dir)) {
             $this->create_dir($dir_array);
-            if (!mkdir($dir) && !is_dir($dir)) {
+            if ( ! mkdir($dir) && ! is_dir($dir)) {
                 throw new \RuntimeException(sprintf('Directory "%s" was not created', $dir));
             }
         }
@@ -1129,7 +1232,7 @@ class Cache
     /**
      * @param     $name
      * @param     $value
-     * @param int $time
+     * @param int $time in Minutes
      *
      * @return bool
      */
@@ -1137,7 +1240,7 @@ class Cache
     public function put($name, $value, $time = 1440)
     {
         $cache = ['value' => $value, 'valid' => time() + ($time * 60)];
-        if (file_put_contents($this->cache_dir . $name, json_encode($cache))) {
+        if (file_put_contents($this->cache_dir.$name, json_encode($cache))) {
             $this->cache[$name] = $cache;
 
             return true;
@@ -1154,13 +1257,20 @@ class Cache
     public function forget($name)
     {
         $cache = ['value' => '', 'valid' => 0];
-        if (file_put_contents($this->cache_dir . $name, json_encode($cache))) {
+        if (file_put_contents($this->cache_dir.$name, json_encode($cache))) {
             $this->cache[$name] = $cache;
 
             return true;
         }
 
         return false;
+    }
+
+    public function clear()
+    {
+        foreach (glob($this->cache_dir.'*') as $file) {
+            file_exists($file) && unlink($file);
+        }
     }
 }
 
@@ -1173,19 +1283,30 @@ class Log
 {
     private $logPath;
 
-    public function __construct()
+    public function __construct($dir)
     {
-        $this->logPath = basename(__DIR__);
+        $this->logPath = $dir;
     }
 
     /**
      * @param $message
      */
-    public function message($message)
+    public function write($message)
     {
-        chmod($this->logPath, 0777);
-        file_put_contents($this->logPath . '/collivery.net_error_logs' . date('Ymd') . '.log', "{$message}\n",
-            FILE_APPEND);
+        // Convoluted logic to prevent race condition errors
+        if (! is_dir($concurrentDirectory = $this->logPath)  && ! @mkdir($concurrentDirectory) && ! is_dir($concurrentDirectory)) {
+            throw new \RuntimeException(sprintf('Directory "%s" was not created', $concurrentDirectory));
+        }
+        chmod($this->logPath, 0775);
+        $file = fopen($this->logPath.'/collivery.net_error-'.date('Ymd').'.log', 'a');
+        fwrite(
+            $file,
+            sprintf(
+                "[%s] ERROR : %s\n",
+                date('Y-m-d H:i:s'),
+                $message
+            )
+        );
+        fclose($file);
     }
-
 }

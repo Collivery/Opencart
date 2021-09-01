@@ -12,8 +12,8 @@ class ModelExtensionShippingMds extends Model
     const SORTED_02_SUBURB = '9';
     const SORTED_03_LOCATION_TYPE = '10';
 
-    private $columns = array(
-        'order' => array(
+    private $columns = [
+        'order'   => [
             'collivery_from_address_id',
             'collivery_from_contact_id',
             'collivery_to_address_id',
@@ -23,30 +23,31 @@ class ModelExtensionShippingMds extends Model
             'collivery_location_type',
             'collivery_price_data',
             'collivery_service_type_id',
-            'waybill_id'
-        ),
-        'address' => array(
+            'waybill_id',
+        ],
+        'address' => [
             'collivery_town',
             'collivery_suburb',
             'collivery_location_type',
-        )
-    );
+        ],
+    ];
 
-    private $locationFields = array(
-        self::SORTED_01_TOWN => "Town",
-        self::SORTED_02_SUBURB => "Suburb",
+    private $locationFields = [
+        self::SORTED_01_TOWN          => "Town",
+        self::SORTED_02_SUBURB        => "Suburb",
         self::SORTED_03_LOCATION_TYPE => "Location Type",
-    );
+    ];
 
-    private $relationship = array(
+    private $relationship = [
         'custom_field_description',
         'custom_field_customer_group',
         'custom_field_value_description',
         'custom_field_value',
-        'custom_field'
-    );
+        'custom_field',
+    ];
 
-    public function addColumns() {
+    public function addColumns()
+    {
         foreach ($this->columns as $table => $columns) {
             foreach ($columns as $column) {
                 if ($this->exists($this->query($this->getCustomQuery($table, $column)))) {
@@ -62,7 +63,8 @@ class ModelExtensionShippingMds extends Model
         $this->query("ALTER TABLE `".DB_PREFIX."{$table}` ADD `{$column}` VARCHAR(255) NULL DEFAULT NULL;");
     }
 
-    public function dropColumns() {
+    public function dropColumns()
+    {
         foreach ($this->columns as $table => $columns) {
             foreach ($columns as $column) {
                 if ($this->exists($this->query($this->getCustomQuery($table, $column)))) {
@@ -81,27 +83,27 @@ class ModelExtensionShippingMds extends Model
     {
         foreach ($this->locationFields as $index => $field) {
 
-            if ($this->doesNotExists($this->selectWhere('custom_field_description', 'name',  $field))) {
+            if ($this->doesNotExists($this->selectWhere('custom_field_description', 'name', $field))) {
 
-                $this->insert('custom_field',[
-                    'type' => 'select',
-                    'location' => 'address',
-                    'status' => 1,
-                    'sort_order' => $index
+                $this->insert('custom_field', [
+                    'type'       => 'select',
+                    'location'   => 'address',
+                    'status'     => 1,
+                    'sort_order' => $index,
                 ]);
 
                 $custom_field_id = $this->db->getLastId();
 
-                $this->insert('custom_field_description',[
+                $this->insert('custom_field_description', [
                     'custom_field_id' => (int)$custom_field_id,
-                    'language_id' => 1,
-                    'name' => $field
+                    'language_id'     => 1,
+                    'name'            => $field,
                 ]);
 
-                $this->insert('custom_field_customer_group',[
-                    'custom_field_id' => (int)$custom_field_id,
+                $this->insert('custom_field_customer_group', [
+                    'custom_field_id'   => (int)$custom_field_id,
                     'customer_group_id' => 1,
-                    'required' => 0
+                    'required'          => 0,
                 ]);
 
             }
@@ -114,7 +116,7 @@ class ModelExtensionShippingMds extends Model
             $query = $this->selectWhere('custom_field_description', 'name', $field);
 
             if ($this->exists($query)) {
-                $row = $this->first($query);
+                $row             = $this->first($query);
                 $custom_field_id = $row['custom_field_id'];
 
                 foreach ($this->relationship as $table) {
@@ -134,40 +136,46 @@ class ModelExtensionShippingMds extends Model
 
     private function deleteWhere($table, $field, $value)
     {
-        return $this->action('DELETE',$table, $field, $value);
+        return $this->action('DELETE', $table, $field, $value);
     }
 
     private function selectWhere($table, $field, $value)
     {
-        return $this->action("SELECT *",$table, $field, $value);
+        return $this->action("SELECT *", $table, $field, $value);
     }
 
-    private function action($type,$table, $field, $value )
+    private function action($type, $table, $field, $value)
     {
-        return $this->query($type . " FROM " . DB_PREFIX.$table . " WHERE " . "`$field`" . " = '" . $this->db->escape($value) . "'");
+        return $this->query($type." FROM ".DB_PREFIX.$table." WHERE "."`$field`"." = '".$this->db->escape($value)."'");
     }
 
     private function insert($table, $data)
     {
-        $this->query("INSERT INTO `" . DB_PREFIX . $table . "` SET " . $this->implode($data));
+        $this->query("INSERT INTO `".DB_PREFIX.$table."` SET ".$this->implode($data));
     }
 
     private function implode($data)
     {
-        return implode(', ', array_map(
-                function ($v, $k) { return sprintf("`%s` = '%s' " , $k, $v); },
-                $data, array_keys($data))
+        return implode(
+            ', ',
+            array_map(
+                function ($v, $k) {
+                    return sprintf("`%s` = '%s' ", $k, $v);
+                },
+                $data,
+                array_keys($data)
+            )
         );
     }
 
-    private function  exists($query)
+    private function exists($query)
     {
         return $this->count($query) > 0;
     }
 
-    private function  doesNotExists($query)
+    private function doesNotExists($query)
     {
-        return (int) $this->count($query) === 0;
+        return (int)$this->count($query) === 0;
     }
 
     private function count($query)

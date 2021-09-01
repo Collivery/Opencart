@@ -2,8 +2,9 @@
 <modification>
     <name>Collivery.net Extension For Opencart v3.0.3.x</name>
     <code>mds</code>
-    <version>1.0.5</version>
-    <author>MDS Tech</author>
+    <!--  Also modify Collivery.php::PLUGIN_VERSION -->
+    <version>1.2.0</version>
+    <author>MDS Technologies</author>
     <link>https://collivery.net</link>
     <!-- CONTROLLERS -->
     <!-- Admin Controllers -->
@@ -14,6 +15,7 @@
             </search>
             <add position="before">
                 <![CDATA[
+
         $collivery_method_available = false;
 		foreach ($this->session->data['shipping_methods'] as $method_array){
 		    if(isset($method_array['code']) && $method_array['code'] === 'mds' && count($method_array['quote'])) {
@@ -25,63 +27,33 @@
 		if($collivery_method_available){
             $data['error_warning'] = 'No Collivery.net Shipping Methods Available!';
         }
+
                 ]]>
             </add>
         </operation>
 
     </file>
-    <file path="system/engine/controller.php">
+    <file path="admin/controller/startup/startup.php|catalog/controller/startup/startup.php">
         <operation>
             <search>
-                <![CDATA[public function __get($key) {]]>
+                <![CDATA[$this->registry->set('encryption', new Encryption($this->config->get('config_encryption')));]]>
             </search>
             <add position="after">
                 <![CDATA[
-        /** @collivery-config */
-        if(!$this->registry->has('collivery')){
-            $query = $this->registry->get('db')->query("SELECT
-                   p.value AS '0',
-                   u.value AS '1',
-                   d.value AS '2'
-            FROM `".DB_PREFIX."setting` AS p
-            LEFT JOIN `".DB_PREFIX."setting` AS u on(u.`code` = p.`code`)
-            LEFT JOIN `".DB_PREFIX."setting` AS d on(d.`code` = p.`code`)
-            WHERE p.`code`='shipping_mds'
-              AND u.`code`='shipping_mds'
-              AND d.`code`='shipping_mds'
-              AND p.`key`='shipping_mds_password'
-              AND u.`key`='shipping_mds_username'
-              AND d.`key`='shipping_mds_is_demo'");
-            if (!$query->num_rows) {
-                $is_demo = true;
-                $username = '';
-                $password = '';
-            } else {
-                list($password, $username, $is_demo) = $query->row;
-            }
-            $config = array(
-                'log' => $this->registry->get('log'),
-                'cache_dir' => DIR_CACHE.'/mds/',
-                'app_name' => 'MDS Collivery.net',
-                'app_version' => '1.0.4',
-                'app_host' => 'Opencart ' . VERSION,
-                'app_url' => $_SERVER['HTTP_HOST'],
-                'user_email' => $username ,
-                'user_password' => $password,
-                'demo' =>  $is_demo
-            );
 
-            $collivery_library = DIR_SYSTEM . 'library/mds/Collivery.php';
-            if(is_file($collivery_library)){
-                include_once $collivery_library;
-                $this->registry->set('collivery', new \Mds\Collivery($config));
-                $collivery = $this->registry->get('collivery');
-                if($collivery->authenticate() &&  $collivery->isAuthError()){
-                    $this->registry->set('error', array('warning' => 'Collivery.net Shipping Plugin Auth Error'));
-                }
+        /** @collivery-config */
+        $colliveryLibrary = DIR_SYSTEM.'library/mds/Collivery.php';
+        if (is_file($colliveryLibrary)) {
+            include_once $colliveryLibrary;
+            $collivery = new \Mds\Collivery($this->registry);
+            if ($collivery->authenticate() && $collivery->isAuthError()) {
+                $this->registry->set('error', ['warning' => 'Collivery.net Shipping Plugin Login Error']);
             }
+
+            $this->registry->set('collivery', $collivery);
         }
         /** @endcollivery-config */
+
                 ]]>
             </add>
         </operation>
@@ -93,6 +65,7 @@
             </search>
             <add position="after">
                 <![CDATA[
+
         /** @collivery-data */
         if($this->collivery){
             $default_address =  $this->collivery->getDefaultAddress();
@@ -111,6 +84,7 @@
         }
 
         /** @endcollivery-data */
+
                 ]]>
             </add>
         </operation>
@@ -119,7 +93,9 @@
                 <![CDATA["INSERT INTO `" . DB_PREFIX . "order` SET]]>
             </search>
             <add position="replace">
-                <![CDATA["INSERT INTO `" . DB_PREFIX . "order` SET {$extra_sql}]]>
+                <![CDATA[
+                "INSERT INTO `" . DB_PREFIX . "order` SET {$extra_sql}
+                ]]>
             </add>
         </operation>
     </file>
@@ -130,8 +106,10 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                     $this->load->model('account/customer');
                     $this->load->model('account/address');
+
                 ]]>
             </add>
         </operation>
@@ -141,10 +119,12 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                 $order_data['shipping_country_id'] = $this->session->data['shipping_address']['country_id'];
 				$order_data['shipping_collivery_town'] = $this->session->data['shipping_address']['collivery_town'];
 				$order_data['shipping_collivery_suburb'] = $this->session->data['shipping_address']['collivery_suburb'];
 				$order_data['shipping_collivery_location_type'] = $this->session->data['shipping_address']['collivery_location_type'];
+
                 ]]>
             </add>
         </operation>
@@ -152,22 +132,16 @@
     <file path="catalog/controller/checkout/guest.php">
         <operation>
             <search>
-                <![CDATA[$custom_fields = $this->model_account_custom_field->getCustomFields($customer_group_id);]]>
-            </search>
-            <add position="replace">
-                <![CDATA[$custom_fields = $this->model_account_custom_field->getCustomFields();]]>
-            </add>
-        </operation>
-        <operation>
-            <search>
                 <![CDATA[$this->session->data['shipping_address']['zone_id'] = $this->request->post['zone_id'];]]>
             </search>
             <add position="replace">
                 <![CDATA[
+
                 $this->session->data['shipping_address']['zone_id'] = $this->request->post['zone_id'];
 				$this->session->data['shipping_address']['collivery_town'] = $this->request->post['collivery_town'];
 				$this->session->data['shipping_address']['collivery_suburb'] = $this->request->post['collivery_suburb'];
 				$this->session->data['shipping_address']['collivery_location_type'] = $this->request->post['collivery_location_type'];
+
                 ]]>
             </add>
         </operation>
@@ -177,6 +151,7 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                    $this->session->data['guest']['telephone'] = $this->request->post['telephone'];
                     /** @collivery-data */
                     $this->session->data['guest']['collivery_town'] = $this->request->post['collivery_town'];
@@ -184,6 +159,7 @@
                     $this->session->data['guest']['collivery_location_type'] = $this->request->post['collivery_location_type'];
 
                     /** @endcollivery-data */
+
                 ]]>
             </add>
         </operation>
@@ -194,7 +170,9 @@
                 <![CDATA[$custom_fields = $this->model_account_custom_field->getCustomFields($customer_group_id);]]>
             </search>
             <add position="replace">
-                <![CDATA[$custom_fields = $this->model_account_custom_field->getCustomFields();]]>
+                <![CDATA[
+                $custom_fields = $this->model_account_custom_field->getCustomFields();
+                ]]>
             </add>
         </operation>
     </file>
@@ -205,10 +183,11 @@
             </search>
             <add position="before">
                 <![CDATA[
+
     public function createColliveryAddress(){
         $order_id = $this->request->get['order_id'];
         if($order_id){
-            $order_object = (object) $this->db->query('select * from '. DB_PREFIX . "order where order_id='$order_id'")->row;
+            $order_object = (object) $this->db->query('select * from '. DB_PREFIX . "order where order_id='".$this->db->escape($order_id)."'")->row;
             $post_data = (object) $this->request->post;
             if(!$order_object->waybill_id || ($order_object->collivery_town != $post_data->shipping_collivery_town || $order_object->collivery_suburb != $post_data->shipping_collivery_suburb)){ //if address is not created
                 $address_data['street'] = $order_object->shipping_address_1;
@@ -221,8 +200,23 @@
                 $address_data['phone'] = $order_object->telephone;
                 $address_data['email'] = $order_object->email;
 
-                list('address_id' => $address_id, 'contact_id' => $contact_id) = $this->collivery->addAddress($address_data);
-                $this->db->query('update ' .DB_PREFIX . 'order set collivery_town="'. $address_data['town_id']. '", collivery_suburb="'. $address_data['suburb_id']. '", collivery_location_type="'. $address_data['location_type']. '", collivery_to_address_id="' . $address_id .'", collivery_to_contact_id="' . $contact_id . '" where order_id="' . $order_object->order_id . '"');
+                $results = $this->collivery->addAddress($address_data);
+
+                if (!isset($results['address_id'])) {
+                    $output = "";
+                    foreach((array) $results['errors'] as $error) {
+                        $output .= $error.PHP_EOL;
+                    }
+
+                    $this->response->addHeader($this->request->server['SERVER_PROTOCOL'] . '/1.1 400 Bad Request');
+                    $this->response->addHeader('Content-Type: application/json');
+                    $this->response->setOutput(json_encode(['errors' => $output]));
+
+                    return;
+                }
+
+                list('address_id' => $address_id, 'contact_id' => $contact_id) = $results;
+                $this->db->query('update ' .DB_PREFIX . 'order set collivery_town="'. $this->db->escape($address_data['town_id']). '", collivery_suburb="'. $this->db->escape($address_data['suburb_id']). '", collivery_location_type="'. $this->db->escape($address_data['location_type']). '", collivery_to_address_id="' . $this->db->escape($address_id) .'", collivery_to_contact_id="' . $this->db->escape($contact_id) . '" where order_id="' . $this->db->escape($order_object->order_id) . '"');
             }
             $this->acceptAndCreateWaybill($order_id);
         }
@@ -230,7 +224,7 @@
 
     public function acceptAndCreateWaybill($order_id)
     {
-        $data = $this->db->query("select * from " . DB_PREFIX . "order where order_id='$order_id'")->row;
+        $data = $this->db->query("select * from " . DB_PREFIX . "order where order_id='".$this->db->escape($order_id)."'")->row;
         if($data['collivery_from_address_id'] && $data['collivery_to_address_id']){ //if waybill is not created
             $data_object = (object) $data;
             $quote['parcels'] = [];
@@ -257,20 +251,26 @@
             $validated_collivery_data = $this->collivery->validate($quote);
             if($validated_collivery_data){
                 $data['quote_data'] = $validated_collivery_data;
-                $check = $this->db->query('select waybill_id from ' .DB_PREFIX . 'order where order_id="' . $data_object->order_id . '"')->row['waybill_id'];
-                if(!$check){
-                    $waybill_id = $this->collivery->addCollivery($validated_collivery_data);
-                    if($waybill_id){
-                        $this->db->query('update ' .DB_PREFIX . "order set `collivery_price_data`='". json_encode($validated_collivery_data)."', waybill_id='" . $waybill_id . "' where order_id='" . $data_object->order_id . "'");
+                $check = $this->db->query('select waybill_id from ' .DB_PREFIX . 'order where order_id="' . $this->db->escape($data_object->order_id) . '"')->row['waybill_id'];
+                if(!$check) {
+                    try {
+                        $waybill_id = $this->collivery->addCollivery($validated_collivery_data);
+                        $this->db->query('update ' .DB_PREFIX . "order set `collivery_price_data`='". json_encode($validated_collivery_data)."', waybill_id='" . $this->db->escape($waybill_id) . "' where order_id='" . $this->db->escape($data_object->order_id) . "'");
                         if($this->config->get('shipping_mds_auto_accept_waybill')){
                             $this->collivery->acceptCollivery($waybill_id);
                         }
+                    } catch (\Mds\ColliveryException $e) {
+                        $this->response->addHeader($this->request->server['SERVER_PROTOCOL'] . '/1.1 400 Bad Request');
+                        $this->response->addHeader('Content-Type: application/json');
+                        $this->response->setOutput(json_encode(['errors' => $e->getMessage()]));
+
+                        return;
                     }
                 }
             }
         }
 
-        $data = $this->db->query("select * from " . DB_PREFIX . "order where order_id='$order_id'")->row;
+        $data = $this->db->query("select * from " . DB_PREFIX . "order where order_id='" . $this->db->escape($order_id) . "'")->row;
 
         $waybill_id = $data['waybill_id'];
         $waybill_status = $this->collivery->getColliveryStatus($waybill_id);
@@ -289,9 +289,10 @@
         $response['collivery_from'] = $this->collivery->getAddress($data['collivery_from_address_id'])['nice_address'];
         $response['collivery_to'] = $this->collivery->getAddress($data['collivery_to_address_id'])['nice_address'];
 
-        header('Content-Type: application/json');
-        echo json_encode($response);
+        $this->response->addHeader('Content-Type: application/json');
+        $this->response->setOutput(json_encode($response));
     }
+
                 ]]>
             </add>
         </operation>
@@ -302,9 +303,8 @@
             </search>
             <add position="before">
                 <![CDATA[
+
     /** @collivery-data */
-
-
         list($code, $service_type_id) = explode('.', $data['shipping_code']);
         $data['is_mds'] = $code == 'mds';
         $location_types = $this->collivery->getLocationTypes();
@@ -314,7 +314,7 @@
 
             $data['collivery_services'] = $this->collivery->getServices();
 
-            $order = $this->db->query('select * from ' . DB_PREFIX . 'order where order_id=' . $data['order_id'] )->row;
+            $order = $this->db->query('select * from ' . DB_PREFIX . 'order where order_id="' . $this->db->escape($data['order_id']).'"')->row;
 
             foreach ($order as $column => $column_value){
                 $data[$column] = $column_value;
@@ -325,7 +325,7 @@
                 list('address_id' => $address_id) = $address['address'];
                 list('contact_id' => $contact_id) = current($address['contacts']);
                 $data['collivery_from_address_id'] = $address_id;
-                $this->db->query('update ' .DB_PREFIX . 'order set collivery_from_address_id="' . $address_id . '", collivery_from_contact_id="' . $contact_id .'" where order_id="' . $data['order_id'] . '"');
+                $this->db->query('update ' .DB_PREFIX . 'order set collivery_from_address_id="' . $this->db->escape($address_id) . '", collivery_from_contact_id="' . $this->db->escape($contact_id) .'" where order_id="' . $this->db->escape($data['order_id']) . '"');
             }
 
             //Collivery collection address
@@ -387,6 +387,7 @@
             }
         }
         /** @endcolivery-data */
+
                 ]]>
             </add>
         </operation>
@@ -396,8 +397,10 @@
             </search>
             <add position="after">
                 <![CDATA[
+
                     $this->load->language('extension/shipping/mds');
                     $data = $this->language->all();
+
                 ]]>
             </add>
         </operation>
@@ -406,7 +409,9 @@
                 <![CDATA[$data['footer'] = $this->load->controller('common/footer');]]>
             </search>
             <add position="after">
-                <![CDATA[       $data['tab_mds'] = "Collivery.net";]]>
+                <![CDATA[
+                       $data['tab_mds'] = "Collivery.net";
+                ]]>
             </add>
         </operation>
     </file>
@@ -417,6 +422,7 @@
             </search>
             <add position="before">
                 <![CDATA[
+
                     public function getTownSuburbs() {
                         $townId = $this->request->get['town_id'];
                         $respond = "";
@@ -426,6 +432,7 @@
                         }
                         echo $respond;
                     }
+
                 ]]>
             </add>
         </operation>
@@ -437,6 +444,7 @@
             </search>
             <add position="before">
                 <![CDATA[
+
                     public function getTownSuburbs() {
                         $townId = $this->request->get['town_id'];
                         $respond = "";
@@ -445,6 +453,7 @@
                         }
                         echo $respond;
                     }
+
                 ]]>
             </add>
         </operation>
@@ -459,10 +468,12 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                 'address_id'     => $address_query->row['address_id'],
 				'collivery_town'     => $address_query->row['collivery_town'],
 				'collivery_suburb'     => $address_query->row['collivery_suburb'],
 				'collivery_location_type'     => $address_query->row['collivery_location_type'],
+
                 ]]>
             </add>
         </operation>
@@ -472,6 +483,7 @@
             </search>
             <add position="after">
                 <![CDATA[
+
                     $sql['collivery_town'] = $data['collivery_town'];
                     $sql['collivery_suburb'] = $data['collivery_suburb'];
                     $sql['collivery_location_type'] = $data['collivery_location_type'];
@@ -479,6 +491,7 @@
                     foreach($sql as $k => $v){
                         $string .= "$k='$v', ";
                     }
+
                 ]]>
             </add>
         </operation>
@@ -487,7 +500,9 @@
                 <![CDATA["UPDATE " . DB_PREFIX . "address SET]]>
             </search>
             <add position="replace">
-                <![CDATA["UPDATE " . DB_PREFIX . "address SET $string]]>
+                <![CDATA[
+                "UPDATE " . DB_PREFIX . "address SET $string
+                ]]>
             </add>
         </operation>
         <operation>
@@ -496,6 +511,7 @@
             </search>
             <add position="after">
                 <![CDATA[
+
         $sql['collivery_location_type'] = $data['collivery_location_type'];
         $sql['collivery_town'] = $data['collivery_town'];
         $sql['collivery_suburb'] = $data['collivery_suburb'];
@@ -503,6 +519,7 @@
         foreach($sql as $k => $v){
             $string .= "$k='$v', ";
         }
+
                 ]]>
             </add>
         </operation>
@@ -511,17 +528,21 @@
                 <![CDATA["INSERT INTO " . DB_PREFIX . "address SET]]>
             </search>
             <add position="replace">
-                <![CDATA["INSERT INTO " . DB_PREFIX . "address SET $string]]>
+                <![CDATA[
+                "INSERT INTO " . DB_PREFIX . "address SET $string
+                ]]>
             </add>
         </operation>
     </file>
     <file path="catalog/controller/account/address.php">
         <operation>
-        <search>
-            <![CDATA[if ($custom_field['location'] == 'address') {]]>
-        </search>
-        <add position="before">
-            <![CDATA[//if($custom_field['name'] == 'Town' || $custom_field['name'] == 'Suburb' || $custom_field['name'] == 'Location Type')continue;]]>
+            <search>
+                <![CDATA[if ($custom_field['location'] == 'address') {]]>
+            </search>
+            <add position="before">
+            <![CDATA[
+                //if($custom_field['name'] == 'Town' || $custom_field['name'] == 'Suburb' || $custom_field['name'] == 'Location Type')continue;
+            ]]>
         </add>
         </operation>
     </file>
@@ -532,7 +553,9 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                     if (isset($custom_field['location']) && $custom_field['location'] == 'address') {
+
                 ]]>
             </add>
         </operation>
@@ -544,9 +567,11 @@
             </search>
             <add position="after">
                 <![CDATA[
+
                     /** @collivery-data */
-					    $this->session->data['collivery_collection_address'] = $this->db->query("select * from " . DB_PREFIX . "address where address_id='$address_id'")->row;
+                    $this->session->data['collivery_collection_address'] = $this->db->query("select * from " . DB_PREFIX . "address where address_id='" . $this->db->escape($address_id) . "'")->row;
                     /** @endcollivery-data */
+
                 ]]>
             </add>
         </operation>
@@ -556,7 +581,9 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                     if (isset($custom_field['location']) && $custom_field['location'] == 'address') {
+
                 ]]>
             </add>
         </operation>
@@ -568,7 +595,9 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                    $custom_fields = $this->model_account_custom_field->getCustomFields();
+
                 ]]>
             </add>
         </operation>
@@ -578,10 +607,11 @@
             </search>
             <add position="before">
                 <![CDATA[
+
         /** @collivery-data */
         if(isset($this->request->post['address_id'])){
             $address_id = $this->request->post['address_id'];
-            $result = $this->db->query("select collivery_town, collivery_suburb, collivery_location_type from " . DB_PREFIX . "address where address_id='$address_id'");
+            $result = $this->db->query("select collivery_town, collivery_suburb, collivery_location_type from " . DB_PREFIX . "address where address_id='" . $this->db->escape($address_id) . "'");
             if($result->num_rows){
                 $address = (object) $result->row;
                 if(!$address->collivery_town || !$address->collivery_suburb || !$address->collivery_location_type){
@@ -591,6 +621,7 @@
             }
         }
         /** @endcollivery-data */
+
                 ]]>
             </add>
         </operation>
@@ -600,7 +631,9 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                     if (isset($custom_field['location']) && $custom_field['location'] == 'address') {
+
                 ]]>
             </add>
         </operation>
@@ -613,7 +646,9 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                     if (isset($custom_field['location']) && $custom_field['location'] == 'address') {
+
                 ]]>
             </add>
         </operation>
@@ -625,7 +660,9 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                     if ($custom_field['required'] && empty($this->request->post['custom_field'][$custom_field['custom_field_id']])) {
+
                 ]]>
             </add>
         </operation>
@@ -636,7 +673,9 @@
                 <![CDATA[if (if ($custom_field['location'] == 'address') {]]>
             </search>
             <add position="before">
-                <![CDATA[if($custom_field['name'] == 'Town' || $custom_field['name'] == 'Suburb' || $custom_field['name'] == 'Location Type')continue;]]>
+                <![CDATA[
+                if($custom_field['name'] == 'Town' || $custom_field['name'] == 'Suburb' || $custom_field['name'] == 'Location Type'){continue;}
+                ]]>
             </add>
         </operation>
 
@@ -648,9 +687,11 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                     'firstname'      => $this->request->post['firstname'],
                     'collivery_town'      => $this->request->post['shipping_collivery_town'],
                     'collivery_location_type'      => $this->request->post['shipping_collivery_location_type'],
+
                 ]]>
             </add>
         </operation>
@@ -673,7 +714,9 @@
                 <![CDATA[: $('a[href=\'#tab-shipping\']')]]>
             </search>
             <add position="replace">
-                <![CDATA[: $('a[href=\'#tab-mds\']')]]>
+                <![CDATA[
+                : $('a[href=\'#tab-mds\']')
+                ]]>
             </add>
         </operation>
         <operation>
@@ -681,7 +724,9 @@
                 <![CDATA[$('#button-shipping-address').button('reset');]]>
             </search>
             <add position="replace">
-                <![CDATA[//$('#button-shipping-address').button('reset');]]>
+                <![CDATA[
+                //$('#button-shipping-address').button('reset');
+                ]]>
             </add>
         </operation>
         <operation>
@@ -690,67 +735,86 @@
             </search>
             <add position="replace">
                 <![CDATA[
-                var colliveryElements = $(document).find('[name="shipping_collivery_town"], [name="shipping_collivery_suburb"], [name="shipping_collivery_location_type"]');
-                      var errors = [];
-                      colliveryElements.each(function() {
-                            if(!$(this).val()){
-                                alert('Please select Town, Suburb and Location Type');
-                              errors.push(`${$(this).attr('name')} missing!`);
-                            }
-                       });
-                      if(!errors.length){
-                        $.ajax({
-                              url : `index.php?route=sale/order/createColliveryAddress&user_token=${window.user_token}&order_id={{ order_id }}`,
-                              method:'post',
-                              dataType: 'json',
-                              data : $('#tab-shipping').find('select, textarea, input').serialize()
-                            }).done(function(response){
-                                var { waybill_id : waybill_id, waybill_status : waybill_status, waybill_service : waybill_service, collivery_from : collivery_from, collivery_to : collivery_to, delivery_date : delivery_date } = response,
-             html = `
-              <div class="row">
-                          <div class="col-md-4 text-left">
-                              <h4>
-                                  Waybill No: ${ waybill_id } <b></b>
-                              </h4>
-                          </div>
-                          <div class="col-md-4 text-center">
-                              <h4>
-                                  Service Type: ${ waybill_service }<b></b>
-                              </h4>
-                          </div>
-                          <div class="col-md-4 text-right">
-                              <h4>
-                                  Delivery Date : ${ delivery_date }<b></b>
-                              </h4>
-                          </div>
-                      </div>
-                     <div class="row">
-                      <div class="col-md-12">
-                          <table class="table table-bordered">
-                              <tbody>
-                              <tr>
-                                  <td colspan="8" class="text-center text-uppercase bg-info">Collivery Information</td>
-                              </tr>
-                              <tr>
-                                  <td width="50%" class="text-center"><b>Collection Address</b></td>
-                                  <td width="50%" class="text-center"><b>Delivery Address</b></td>
-                              </tr>
-                              <tr>
-                                  <td>${ collivery_from }</td>
-                                  <td>${ collivery_to }</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                      </div>
-                  </div>
-            `;
 
-                $(document).find('#sub-tab-mds').html(html);
-                }).always(function(){
+                var url = (new URL(window.location.href));
+var user_token = user_token || url.searchParams.get('user_token');
+                var colliveryElements = $(document)
+                  .find('[name="shipping_collivery_town"], [name="shipping_collivery_suburb"], [name="shipping_collivery_location_type"]');
+                var errors = [];
+                colliveryElements.each(function () {
+                  if (!$(this).val()) {
+                    alert('Please select Town, Suburb and Location Type');
+                    errors.push($(this).attr('name')+' missing!');
+                  }
+                });
+                if (!errors.length) {
+                  $.ajax({
+                    url: 'index.php?route=sale/order/createColliveryAddress&user_token='+user_token+'&order_id={{ order_id }}',
+                    method: 'post',
+                    dataType: 'json',
+                    data: $('#tab-shipping').find('select, textarea, input').serialize()
+                  })
+                  .done(function (response) {
+                    var waybill_id = response.waybill_id;
+                    var waybill_service = response.waybill_service;
+                    var collivery_from = response.collivery_from;
+                    var collivery_to = response.collivery_to;
+                    var delivery_date = response.delivery_dat;
+                    var html = '<div class="row">' +
+                        '  <div class="col-md-4 text-left">' +
+                        '      <h4>' +
+                        '          Waybill No: ' + waybill_id + ' <b></b>' +
+                        '      </h4>' +
+                        '  </div>' +
+                        '  <div class="col-md-4 text-center">' +
+                        '      <h4>' +
+                        '          Service Type: ' + waybill_service + '<b></b>' +
+                        '      </h4>' +
+                        '  </div>' +
+                        '  <div class="col-md-4 text-right">' +
+                        '      <h4>' +
+                        '          Delivery Date : ' + delivery_date + '<b></b>' +
+                        '      </h4>' +
+                        '    </div>' +
+                        '</div>' +
+                        '<div class="row">' +
+                        '  <div class="col-md-12">' +
+                        '    <table class="table table-bordered">' +
+                        '      <tbody>' +
+                        '        <tr>' +
+                        '          <td colspan="8" class="text-center text-uppercase bg-info">Collivery Information</td>' +
+                        '        </tr>' +
+                        '        <tr>' +
+                        '          <td width="50%" class="text-center"><b>Collection Address</b></td>' +
+                        '          <td width="50%" class="text-center"><b>Delivery Address</b></td>' +
+                        '        </tr>' +
+                        '        <tr>' +
+                        '          <td>' + collivery_from + '</td>' +
+                        '          <td>' + collivery_to + '</td>' +
+                        '        </tr>' +
+                        '      </tbody>' +
+                        '    </table>' +
+                        '  </div>' +
+                        '</div>';
+                    $(document).find('#sub-tab-mds').html(html);
+                  })
+                  .fail(function(jqXHR, textStatus, errorThrown ) {
+                    console.error(jqXHR, textStatus, errorThrown);
+
+                    // The web server (apache, haproxy) returned an error page
+                    if (jqXHR.responseText.substr(0,1) === '<') {
+                      alert('Server error, please check error logs');
+                    } else {
+                      var text = JSON.parse(jqXHR.responseText);
+                      alert(text.errors);
+                    }
+                  })
+                  .always(function () {
                     $('a[href="#tab-mds"]').tab('show');
                     $('#button-shipping-address').button('reset');
-                });
-            }
+                  });
+                }
+
 
                 ]]>
             </add>
@@ -771,6 +835,7 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                     <li class="disabled">
                         <a href="#tab-mds" data-toggle="tab">
                             5. {{ tab_collivery }}
@@ -781,6 +846,7 @@
                             6. {{ tab_total }}
                         </a>
                     </li>
+
                 ]]>
             </add>
         </operation>
@@ -789,7 +855,9 @@
                 <![CDATA[return false;]]>
             </search>
             <add position="replace">
-                <![CDATA[return false;]]>
+                <![CDATA[
+                return false;
+                ]]>
             </add>
         </operation>
         <operation>
@@ -798,6 +866,7 @@
             </search>
             <add position="before">
                 <![CDATA[
+
             <div class="tab-pane" id="tab-mds">
    <div class="row">
       <div class="col-md-12 text-center">
@@ -843,7 +912,7 @@
       </div>
       <div class="row">
          <div class="col-md-12">
-          {% if is_mds and waybill_status == 1 %} }}
+          {% if is_mds and waybill_status == 1 %}
             <button class="btn btn-success" id="accept-waybill">Accept Waybill (start shipping)</button>
           {% else %}
             <table class="table table-striped">
@@ -888,6 +957,7 @@
 </div>
 </div>
 </div>
+
                 ]]>
             </add>
         </operation>
@@ -896,8 +966,10 @@
                 <![CDATA[[data: $('#tab-payment input[type=\'text\'], #tab-payment input[type=\'hidden\'], #tab-payment input[type=\'radio\']:checked, #tab-payment input[type=\'checkbox\']:checked, #tab-payment select, #tab-payment textarea'),]]>
             </search>
             <add position="replace">
-                <![CDATA[[
+                <![CDATA[
+                [
                     data: $('body').find('textarea, input, select').serialize(),
+
                 ]]>
             </add>
         </operation>
@@ -911,32 +983,40 @@
             </search>
             <add position="after">
                 <![CDATA[
+
                 <script type="text/javascript">
-                    $(document)
-                    .on('change', '[name="collivery_town"]', function(){
-                        var elem = $(this);
-                        var townId = elem.val();
-                        $(document).find('[name="city"]').val(elem.find('option:selected').text());
-                        var url = `index.php?route=checkout/checkout/getTownSuburbs&town_id=${townId}`;
-                        $.get(url)
-                            .done(function(response){
-                                if($(response).attr('value') !== 'auth'){
-                                   $('[name="collivery_suburb"]').empty().html(response);
-                                }else if(!$(document).find('#collivery-alert').length){
-                                    $('fieldset').prepend(`
-                                        <div id="collivery-alert" class="alert alert-danger">
-                                          <strong>Collivery.net</strong> Please contact admin to fix Collivery.net shipping extension.
-                                        </div>`);
-                                        console.error('Collivery Shipping Plugin Could Not Authenticate');
-                                }
-                            }).fail(function(xhr, ajaxOptions, thrownError) {
-                                alert('Collivery suburbs could not be found!');
-                                console.log('Could not find collivery suburb, please check if this plugin is installed properly');
-                            });
-                    }).ready(function(){
-                          $(document).find('[name="city"]').closest('.form-group').attr('hidden', true)
-                    });
+                   $(document)
+                .on('change', '[name="collivery_town"]', function() {
+                  var elem = $(this);
+                  var townId = elem.val();
+                  $(document).find('[name="city"]')
+                    .val(elem.find('option:selected').text());
+
+                  var url = 'index.php?route=checkout/checkout/getTownSuburbs&town_id='+townId;
+                  $.get(url)
+                  .done(function(response){
+                    if($(response).attr('value') !== 'auth'){
+                      $('[name="collivery_suburb"]').empty().html(response);
+                    } else if(!$(document).find('#collivery-alert').length){
+                      $('fieldset').prepend('<div id="collivery-alert" class="alert alert-danger"><strong>Collivery.net</strong> Please contact admin to fix Collivery.net shipping extension.</div>');
+                      console.error('Collivery Shipping Plugin Could Not Authenticate');
+                    }
+                  }).fail(function(jqXHR, textStatus, errorThrown ) {
+                    console.error(jqXHR, textStatus, errorThrown);
+
+                    // The web server (apache, haproxy) returned an error page
+                    if (jqXHR.responseText.substr(0,1) === '<') {
+                      alert('Server error, please check error logs');
+                    } else {
+                      var text = JSON.parse(jqXHR.responseText);
+                      alert(text.errors);
+                    }
+                  });
+                }).ready(function(){
+                  $(document).find('[name="city"]').closest('.form-group').attr('hidden', true)
+                });
                 </script>
+
                 ]]>
             </add>
         </operation>
@@ -947,7 +1027,9 @@
                 <![CDATA[name="custom_field[{{ custom_field.location }}][{{ custom_field.custom_field_id }}]"]]>
             </search>
             <add position="replace">
-                <![CDATA[{% set custom_field_name = custom_field.name|lower|replace({' ': '_'}) %} {% if(custom_field_name == 'location_type' or custom_field_name == 'town' or custom_field_name == 'suburb') %}  name="collivery_{{ custom_field_name }}" {% else %}   name="custom_field[{{ custom_field.location }}][{{ custom_field.custom_field_id }}]" {% endif %} ]]>
+                <![CDATA[
+                {% set custom_field_name = custom_field.name|lower|replace({' ': '_'}) %} {% if(custom_field_name == 'location_type' or custom_field_name == 'town' or custom_field_name == 'suburb') %}  name="collivery_{{ custom_field_name }}" {% else %}   name="custom_field[{{ custom_field.location }}][{{ custom_field.custom_field_id }}]" {% endif %}
+                ]]>
             </add>
         </operation>
     </file>
@@ -958,6 +1040,7 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                 {% set custom_field_name = custom_field.name|lower|replace({' ': '_'}) %}
 
                 {% if(custom_field_name == 'location_type' or custom_field_name == 'town' or custom_field_name == 'suburb') %}
@@ -965,6 +1048,7 @@
                 {% else %}
                     <select name="custom_field[{{ custom_field.location }}][{{ custom_field.custom_field_id }}]" id="input-payment-custom-field{{ custom_field.custom_field_id }}" class="form-control">
                 {% endif %}
+
                 ]]>
             </add>
         </operation>
@@ -974,6 +1058,7 @@
             </search>
             <add position="before">
                 <![CDATA[
+
 <div id="collivery-confirm-create-address-modal" class="modal fade" role="dialog">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -1061,6 +1146,7 @@
 
     </div>
 </div>
+
                 ]]>
             </add>
         </operation>
@@ -1071,158 +1157,187 @@
             <add position="after">
                 <![CDATA[
 
-<script>
-    var Url = (new URL(window.location.href));
-    var user_token = Url.searchParams.get('user_token');
-    $(document)
-    .ready(function(){
-      (function(fields){
-        fields.map(function(item){
-          var select = $(document).find(`select[name="shipping_${item}"]`), option;
-          if(item === 'collivery_town'){
-            option = select.find("[value='{{ collivery_town }}']");
-          }else if(item === 'collivery_suburb'){
-            option = select.find("[value='{{ collivery_suburb }}']");
-          }else{
-            option = select.find("[value='{{ collivery_location_type }}']");
-          }
-          if(option){
-            if(option.length){
-              option.prop('selected', true);
-            }else if(!option.length && item === 'collivery_suburb'){
-              select.empty();
-            }
-          }
-          $(document)
-            .find(`[name="payment_${item}"]`)
-                .closest('div.form-group.custom-field')
-                    .remove();
-        });
-        $('#input-shipping-city').closest('div.form-group').prop('hidden', 'hidden');
-      })(['collivery_town', 'collivery_suburb', 'collivery_location_type']);
-    })
-    .on('click', '#dispatched-collivery-button', function(a){
-    a.preventDefault();
-    var order = Url.searchParams.get('order_id');
-    var from = $('[name="collection_shipping_address_id"]').val();
-    var to = $('[name="delivery_shipping_address_id"]').val();
-    $.getJSON(`index.php?route=sale/order/createCollivery&user_token=${window.user_token}&order=${order}&to=${to}&from=${from}`).done(function(response){
-    })
-    })
-    {% if not (waybill_id or waybill_status == 1) %}
-    .on('click', '#accept-waybill', function(a){
-        a.preventDefault();
-      $('#confirm-accept-price-and-create-waybill').modal('show');
-    })
-    .on('click', '#yes-accept-collivery', function(a){
-      $.ajax(`index.php?route=sale/order/acceptAndCreateWaybill&user_token=${window.user_token}&order_id={{ order_id }}`).done(function(){
-        window.location.reload(true);
-      })
-    })
-    {% endif %}
-    .on('click', '.continue-to-mds-tabg', function(a){
-        $('a[href="#tab-mds"]').tab('show');
-    })
-    .on('change', '[name="shipping_collivery_town"]', function(){
-    var elem = $(this);
-      var townId = elem.val();
-      $('[name="shipping_collivery_suburb"]').empty();
+                <script>
+                    var url = (new URL(window.location.href));
+                    var user_token = url.searchParams.get('user_token');
+                    $(document)
+                    .ready(function(){
+                      ['collivery_town', 'collivery_suburb', 'collivery_location_type'].map(function(item){
+                        var select = $(document).find('select[name="shipping_'+item+'"]'), option;
+                        if(item === 'collivery_town'){
+                          option = select.find("[value='{{ collivery_town }}']");
+                        }else if(item === 'collivery_suburb'){
+                          option = select.find("[value='{{ collivery_suburb }}']");
+                        }else{
+                          option = select.find("[value='{{ collivery_location_type }}']");
+                        }
+                        if(option){
+                          if(option.length){
+                            option.prop('selected', true);
+                          }else if(!option.length && item === 'collivery_suburb'){
+                            select.empty();
+                          }
+                        }
+                        $(document)
+                          .find('[name="payment_'+item+'"]')
+                          .closest('div.form-group.custom-field')
+                          .remove();
+                      });
+                      $('#input-shipping-city').closest('div.form-group').prop('hidden', 'hidden');
+                    })
+                    .on('click', '#dispatched-collivery-button', function(a){
+                      a.preventDefault();
+                      var order = url.searchParams.get('order_id');
+                      var from = $('[name="collection_shipping_address_id"]').val();
+                      var to = $('[name="delivery_shipping_address_id"]').val();
+                      $.getJSON('index.php?route=sale/order/createCollivery&user_token='+user_token+'&order='+order+'&to='+to+'&from='+from)
+                      .done(function(response){})
+                      .fail(function(jqXHR, textStatus, errorThrown ) {
+                        console.error(jqXHR, textStatus, errorThrown);
 
-      var city = $('#input-shipping-city');
+                        // The web server (apache, haproxy) returned an error page
+                        if (jqXHR.responseText.substr(0,1) === '<') {
+                          alert('Server error, please check error logs');
+                        } else {
+                          var text = JSON.parse(jqXHR.responseText);
+                          alert(text.errors);
+                        }
+                      })
+                    })
+                    {% if not (waybill_id or waybill_status == 1) %}
+                    .on('click', '#accept-waybill', function(a){
+                      a.preventDefault();
+                      $('#confirm-accept-price-and-create-waybill').modal('show');
+                    })
+                    .on('click', '#yes-accept-collivery', function(a){
+                      $.ajax('index.php?route=sale/order/acceptAndCreateWaybill&user_token='+user_token+'&order_id={{ order_id }}')
+                      .done(function(){
+                        window.location.reload(true);
+                      })
+                      .fail(function(jqXHR, textStatus, errorThrown ) {
+                        console.error(jqXHR, textStatus, errorThrown);
 
-      city.closest('div.form-group').prop('hidden', 'hidden');
+                        // The web server (apache, haproxy) returned an error page
+                        if (jqXHR.responseText.substr(0,1) === '<') {
+                          alert('Server error, please check error logs');
+                        } else {
+                          var text = JSON.parse(jqXHR.responseText);
+                          alert(text.errors);
+                        }
+                      })
+                    })
+                    {% endif %}
+                    .on('click', '.continue-to-mds-tab', function(){
+                      $('a[href="#tab-mds"]').tab('show');
+                    })
+                    .on('change', '[name="shipping_collivery_town"]', function(){
+                      var elem = $(this);
+                      var townId = elem.val();
+                      $('[name="shipping_collivery_suburb"]').empty();
 
-      city.val(elem.find('option:selected').text());
+                      var city = $('#input-shipping-city');
 
-      $.ajax({
-        url: `{{ constant('HTTP_CATALOG') }}index.php?route=checkout/checkout/getTownSuburbs&town_id=${townId}`,
-        type: 'get',
-        success: function(respond) {
-          $('[name="shipping_collivery_suburb"]').html(respond);
-        },
-        error: function(xhr, ajaxOptions, thrownError) {
-          console.log(thrownError);
-          console.log('Could not find collivery suburb, please check if this plugin is installed properly');
-        }
-      });
-    }).on('change', '[name="payment_collivery_town"]', function(){
-      var townId = $(this).val();
-      $('[name="payment_collivery_suburb"]').empty();
-      $.ajax({
-        url: `{{ constant('HTTP_CATALOG') }}index.php?route=checkout/checkout/getTownSuburbs&town_id=${townId}`,
-        type: 'get',
-        success: function(respond) {
-          $('[name="payment_collivery_suburb"]').html(respond);
-        },
-        error: function(xhr, ajaxOptions, thrownError) {
-          console.log(thrownError);
-          console.log('Could not find collivery suburb, please check if this plugin is installed properly');
-        }
-      });
-    })
-    .on('click', '#button-mds-shipping', function(){
-        $('a[href=\'#tab-total\']').tab('show');
-    })
-    .on('click', '#yes-create-mds-address', function(){
-        var url = `index.php?route=sale/order/createColliveryAddress&user_token=${window.user_token}&order_id={{ order_id }}`;
+                      city.closest('div.form-group').prop('hidden', 'hidden');
 
-        $.ajax({
-          url : url,
-          method:'post',
-          dataType: 'json',
-          data : $('#tab-shipping').find('select, textarea, input').serialize()
-        }).done(function(response){
-            var waybill_id = response.waybill_id;
-            var waybill_status = '';
-            var waybill_service = '';
-            var collivery_from = response.collivery_from;
-            var collivery_to = response.collivery_to;
-            var html = `
-              <div class="row">
-                          <div class="col-md-4 text-left">
-                              <h4>
-                                  Waybill No: ${ waybill_id } <b></b>
-                              </h4>
-                          </div>
-                          <div class="col-md-4 text-center">
-                              <h4>
-                                  Service Type: ${ waybill_service }<b></b>
-                              </h4>
-                          </div>
-                          <div class="col-md-4 text-right">
-                              <h4>
-                                  Waybill Status: ${ waybill_status }<b></b>
-                              </h4>
-                          </div>
-                      </div>
-                     <div class="row">
-                      <div class="col-md-12">
-                          <table class="table table-bordered">
-                              <tbody>
-                              <tr>
-                                  <td colspan="8" class="text-center text-uppercase bg-info">Collivery Information</td>
-                              </tr>
-                              <tr>
-                                  <td width="50%" class="text-center"><b>Collection Address</b></td>
-                                  <td width="50%" class="text-center"><b>Delivery Address</b></td>
-                              </tr>
-                              <tr>
-                                  <td width="50%">${ collivery_from }</td>
-                                  <td width="50%">${ collivery_to }</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                      </div>
-                  </div>
-            `;
+                      city.val(elem.find('option:selected').text());
 
-            $(document).find('#sub-tab-mds').html(html);
-            $('a[href=\'#tab-mds\']').tab('show');
+                      $.ajax({
+                        url: '{{ constant("HTTP_CATALOG") }}index.php?route=checkout/checkout/getTownSuburbs&town_id='+townId,
+                        type: 'get',
+                        success: function(respond) {
+                          $('[name="shipping_collivery_suburb"]').html(respond);
+                        },
+                        error: function(xhr, ajaxOptions, thrownError) {
+                          console.log(thrownError);
+                          alert('Could not find collivery suburb, please check if this plugin is installed properly');
+                        }
+                      });
+                    }).on('change', '[name="payment_collivery_town"]', function(){
+                      var townId = $(this).val();
+                      $('[name="payment_collivery_suburb"]').empty();
+                      $.ajax({
+                        url: '{{ constant("HTTP_CATALOG") }}index.php?route=checkout/checkout/getTownSuburbs&town_id='+townId,
+                        type: 'get',
+                        success: function(respond) {
+                          $('[name="payment_collivery_suburb"]').html(respond);
+                        },
+                        error: function(xhr, ajaxOptions, thrownError) {
+                          console.log(thrownError);
+                          alert('Could not find collivery suburb, please check if this plugin is installed properly');
+                        }
+                      });
+                    })
+                    .on('click', '#button-mds-shipping', function(){
+                      $('a[href=\'#tab-total\']').tab('show');
+                    })
+                    .on('click', '#yes-create-mds-address', function(){
+                      var url = 'index.php?route=sale/order/createColliveryAddress&user_token='+user_token+'&order_id={{ order_id }}';
 
+                  $.ajax({
+                    url : url,
+                    method:'post',
+                    dataType: 'json',
+                    data : $('#tab-shipping').find('select, textarea, input').serialize()
+                  }).done(function(response){
+                    var waybill_id = response.waybill_id;
+                    var waybill_service = '';
+                    var collivery_from = response.collivery_from;
+                    var collivery_to = response.collivery_to;
+                    var delivery_date = response.delivery_date;
+                    var html = '<div class="row">' +
+                      '  <div class="col-md-4 text-left">' +
+                      '      <h4>' +
+                      '          Waybill No: ' + waybill_id + ' <b></b>' +
+                      '      </h4>' +
+                      '  </div>' +
+                      '  <div class="col-md-4 text-center">' +
+                      '      <h4>' +
+                      '          Service Type: ' + waybill_service + '<b></b>' +
+                      '      </h4>' +
+                      '  </div>' +
+                      '  <div class="col-md-4 text-right">' +
+                      '      <h4>' +
+                      '          Delivery Date : ' + delivery_date + '<b></b>' +
+                      '      </h4>' +
+                      '    </div>' +
+                      '</div>' +
+                      '<div class="row">' +
+                      '  <div class="col-md-12">' +
+                      '    <table class="table table-bordered">' +
+                      '      <tbody>' +
+                      '        <tr>' +
+                      '          <td colspan="8" class="text-center text-uppercase bg-info">Collivery Information</td>' +
+                      '        </tr>' +
+                      '        <tr>' +
+                      '          <td width="50%" class="text-center"><b>Collection Address</b></td>' +
+                      '          <td width="50%" class="text-center"><b>Delivery Address</b></td>' +
+                      '        </tr>' +
+                      '        <tr>' +
+                      '          <td>' + collivery_from + '</td>' +
+                      '          <td>' + collivery_to + '</td>' +
+                      '        </tr>' +
+                      '      </tbody>' +
+                      '    </table>' +
+                      '  </div>' +
+                      '</div>';
 
-        });
-    })
-</script>
+                    $(document).find('#sub-tab-mds').html(html);
+                    $('a[href=\'#tab-mds\']').tab('show');
+                  })
+                  .fail(function(jqXHR, textStatus, errorThrown ) {
+                    console.error(jqXHR, textStatus, errorThrown);
+
+                    // The web server (apache, haproxy) returned an error page
+                    if (jqXHR.responseText.substr(0,1) === '<') {
+                      alert('Server error, please check error logs');
+                    } else {
+                      var text = JSON.parse(jqXHR.responseText);
+                      alert(text.errors);
+                    }
+                  });
+                });
+                </script>
+
                 ]]>
             </add>
         </operation>
@@ -1234,6 +1349,7 @@
             </search>
             <add position="replace">
                 <![CDATA[
+
                 {% set custom_field_name = custom_field.name|lower|replace({' ': '_'}) %}
 
                 {% if(custom_field_name == 'location_type' or custom_field_name == 'town' or custom_field_name == 'suburb') %}
@@ -1241,6 +1357,7 @@
                     {% else %}
                     <select name="custom_field[{{ custom_field.location }}][{{ custom_field.custom_field_id }}]" id="input-shipping-custom-field{{ custom_field.custom_field_id }}" class="form-control">
                     {% endif %}
+
                 ]]>
             </add>
         </operation>
@@ -1252,11 +1369,12 @@
             </search>
             <add position="before">
                 <![CDATA[
+
             /** @collivery-data **/
 
                 if($this->collivery && !$this->collivery->hasErrors()){
                     if($custom_field['name'] === 'Location Type' || $custom_field['name'] === 'Town' || $custom_field['name'] === 'Suburb'){
-                        $custom_field_value_query->rows = array();
+                        $custom_field_value_query->rows = [];
                         if($custom_field['name'] == 'Location Type'){
                             $data_array = $location_types;
                         }elseif ($custom_field['name'] == 'Town'){
@@ -1264,13 +1382,13 @@
                         }else{
                             $data_array = $suburbs;
                         }
-                        $custom_field_value_query->rows[] = array('custom_field_value_id' => 0, 'name' => 'Select ' . $custom_field['name']);
                         foreach ($data_array as $id => $name){
-                            $custom_field_value_query->rows[] = array('custom_field_value_id' => $id, 'name' => $name);
+                            $custom_field_value_query->rows[] = ['custom_field_value_id' => $id, 'name' => $name];
                         }
                     }
                 }
                /** @endcollivery-data **/
+
                 ]]>
             </add>
         </operation>
@@ -1280,6 +1398,7 @@
             </search>
             <add position="before">
                 <![CDATA[
+
        /** @collivery-data **/
        if($this->collivery){
             $location_types = $this->collivery->getLocationTypes();
@@ -1287,6 +1406,7 @@
             $suburbs = $this->collivery->getAllSuburbs();
         }
        /** @endcollivery-data **/
+
                 ]]>
             </add>
         </operation>
@@ -1298,8 +1418,9 @@
             </search>
             <add position="after">
                 <![CDATA[
+
             /** @collivery-data **/
-        $query = $this->db->query("select * from " . DB_PREFIX . "custom_field_description where custom_field_id={$custom_field_id}");
+        $query = $this->db->query("select * from " . DB_PREFIX . "custom_field_description where custom_field_id='". $this->db->escape($custom_field_id) . "'");
         if($query->num_rows){
             if($query->row['name'] === 'Town' || $query->row['name'] === 'Suburb' || $query->row['name'] === 'Location Type' && $this->collivery && !$this->collivery->hasErrors()){
                 $locationtype = $this->collivery->getLocationTypes();
@@ -1307,15 +1428,16 @@
                 $suburb = $this->collivery->getAllSuburbs();
                 $data = ${str_replace(' ', '', strtolower($query->row['name']))};
                 foreach($data as $key => $val){
-                    $custom_field_value_data[$key] = array(
+                    $custom_field_value_data[$key] = [
                         'custom_field_value_id' => $key,
                         'name'                  => $val
-                    );
+                    ];
                 }
             }
             return $custom_field_value_data;
         }
                /** @endcollivery-data **/
+
                 ]]>
             </add>
         </operation>
