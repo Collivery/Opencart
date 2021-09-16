@@ -62,7 +62,6 @@ class ControllerExtensionShippingMds extends Controller
 
             $this->response->addHeader('Content-Type: application/zip');
             $this->response->addHeader('Content-Disposition: attachment; filename='.basename($zipFile));
-            $this->response->addHeader("Content-Length: ".filesize($zipFile));
 
             $this->response->setOutput(file_get_contents($zipFile));
 
