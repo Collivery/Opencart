@@ -196,7 +196,8 @@
             <add position="before">
                 <![CDATA[
 
-    public function createColliveryAddress(){
+    public function createColliveryAddress()
+    {
         $order_id = $this->request->get['order_id'];
         if($order_id){
             $order_object = (object) $this->db->query('select * from '. DB_PREFIX . "order where order_id='".$this->db->escape($order_id)."'")->row;
@@ -410,7 +411,7 @@
             <add position="after">
                 <![CDATA[
 
-                    $this->load->language('extension/shipping/mds');
+                    $this->load->language('extension/shipping/mds', 'collivery_lang');
                     $data = $this->language->all();
 
                 ]]>
@@ -850,7 +851,7 @@ var user_token = user_token || url.searchParams.get('user_token');
 
                     <li class="disabled">
                         <a href="#tab-mds" data-toggle="tab">
-                            5. {{ tab_collivery }}
+                            5. {{ collivery_lang.get('tab_collivery') }}
                         </a>
                     </li>
                     <li class="disabled">
