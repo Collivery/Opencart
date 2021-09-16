@@ -772,7 +772,7 @@ var user_token = user_token || url.searchParams.get('user_token');
                     var waybill_service = response.waybill_service;
                     var collivery_from = response.collivery_from;
                     var collivery_to = response.collivery_to;
-                    var delivery_date = response.delivery_dat;
+                    var delivery_date = response.delivery_date;
                     var html = '<div class="row">' +
                         '  <div class="col-md-4 text-left">' +
                         '      <h4>' +
