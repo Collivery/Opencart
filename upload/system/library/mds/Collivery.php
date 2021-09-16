@@ -528,7 +528,7 @@ class Collivery
             }
         }
 
-        return $this->errorsOrResponse($addresses);
+        return $addresses;
     }
 
     /**
