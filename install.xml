@@ -976,7 +976,7 @@ var user_token = user_token || url.searchParams.get('user_token');
     </file>
     <!-- End Admin Views -->
     <!-- Catalog views -->
-    <file path="catalog/view/theme/default/template/checkout/checkout.twig|catalog/view/theme/default/template/account/address_form.twig">
+    <file path="catalog/view/theme/*/template/checkout/checkout.twig|catalog/view/theme/*/template/account/address_form.twig">
         <operation>
             <search index="0">
                 <![CDATA[</script>]]>
@@ -1021,7 +1021,7 @@ var user_token = user_token || url.searchParams.get('user_token');
             </add>
         </operation>
     </file>
-    <file path="catalog/view/theme/default/template/checkout/guest.twig|catalog/view/theme/default/template/checkout/guest_shipping.twig|catalog/view/theme/default/template/checkout/register.twig|catalog/view/theme/default/template/checkout/shipping_address.twig|catalog/view/theme/default/template/checkout/payment_address.twig|catalog/view/theme/default/template/account/edit.twig|catalog/view/theme/default/template/account/address_form.twig">
+    <file path="catalog/view/theme/*/template/checkout/guest.twig|catalog/view/theme/*/template/checkout/guest_shipping.twig|catalog/view/theme/*/template/checkout/register.twig|catalog/view/theme/*/template/checkout/shipping_address.twig|catalog/view/theme/*/template/checkout/payment_address.twig|catalog/view/theme/*/template/account/edit.twig|catalog/view/theme/*/template/account/address_form.twig">
         <operation error="skip">
             <search>
                 <![CDATA[name="custom_field[{{ custom_field.location }}][{{ custom_field.custom_field_id }}]"]]>
