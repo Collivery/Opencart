@@ -277,7 +277,7 @@ class Collivery
     public function compressBacktraceFiles()
     {
         $zip      = new \ZipArchive();
-        $filename = sys_get_temp_dir()."/mds-errors.zip";
+        $filename = $this->config->log_dir."mds-errors.zip";
         if ( ! $zip->open($filename, \ZipArchive::CREATE)) {
             return;
         }
