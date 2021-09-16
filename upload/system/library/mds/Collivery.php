@@ -70,8 +70,8 @@ class Collivery
 
         $this->config = (object)[
             'log'           => $log,
-            'cache_dir'     => DIR_CACHE.'mds/',
-            'log_dir'       => DIR_LOGS.'mds/',
+            'cache_dir'     => $cacheDir,
+            'log_dir'       => $logDir,
             'app_name'      => 'MDS Collivery.net',
             'app_version'   => '1.2.0',
             'app_host'      => 'Opencart '.VERSION,
