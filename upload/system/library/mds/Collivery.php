@@ -27,8 +27,18 @@ class Collivery
     protected $log;
     protected $cache;
 
-    public function __construct(\Registry $registry)
+    /**
+     * @param \Registry $registry
+     */
+    public function __construct($registry)
     {
+        // We are upgrading from an older version
+        if (!($registry instanceof \Registry)) {
+            $this->cache = new Cache(DIR_CACHE);
+
+            return;
+        }
+
         /** @var \Config $config */
         $config = $registry->get('config');
         /** @var \Log $log */
@@ -124,9 +134,16 @@ class Collivery
         $cacheKey = 'auth';
         $auth     = $this->getCache($cacheKey);
 
+
+        // Keep for BC, allows for the code to keep running between upgrading versions
+        if (!$this->config) {
+            return $this;
+        }
+
+        $config   = (object) $this->config;
         $isSameUser = $auth &&
-                      isset($auth['user_email'], $this->config->user_email) &&
-                      ! strcasecmp($this->config->user_email, $auth['user_email']);
+                      isset($auth['user_email'], $config->user_email) &&
+                      ! strcasecmp($config->user_email, $auth['user_email']);
 
         if ($isSameUser) {
             $this->auth_data = $auth;
@@ -137,14 +154,14 @@ class Collivery
             return $this;
         }
 
-        $user_email    = strtolower($this->config->user_email);
-        $user_password = $this->config->user_password;
+        $user_email    = strtolower($config->user_email);
+        $user_password = $config->user_password;
 
-        $config = [
-            'name'    => $this->config->app_name,
-            'version' => $this->config->app_version,
-            'host'    => $this->config->app_host,
-            'url'     => $this->config->app_url,
+        $authConfig = [
+            'name'    => $config->app_name,
+            'version' => $config->app_version,
+            'host'    => $config->app_host,
+            'url'     => $config->app_url,
             'lang'    => 'PHP '.PHP_VERSION,
         ];
 
@@ -154,7 +171,7 @@ class Collivery
         }
 
         try {
-            $authenticate = $this->client->authenticate($user_email, $user_password, $this->token, $config);
+            $authenticate = $this->client->authenticate($user_email, $user_password, $this->token, $authConfig);
 
             if ($authenticate) {
                 $this->auth_data = $authenticate;
