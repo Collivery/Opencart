@@ -138,9 +138,15 @@
                 <![CDATA[
 
                 $this->session->data['shipping_address']['zone_id'] = $this->request->post['zone_id'];
-				$this->session->data['shipping_address']['collivery_town'] = $this->request->post['collivery_town'];
-				$this->session->data['shipping_address']['collivery_suburb'] = $this->request->post['collivery_suburb'];
-				$this->session->data['shipping_address']['collivery_location_type'] = $this->request->post['collivery_location_type'];
+				$this->session->data['shipping_address']['collivery_town'] = isset($this->request->post['collivery_town'])
+				? $this->request->post['collivery_town']
+				: null;
+				$this->session->data['shipping_address']['collivery_suburb'] = isset($this->request->post['collivery_suburb'])
+				? $this->request->post['collivery_suburb']
+				: null;
+				$this->session->data['shipping_address']['collivery_location_type'] = isset($this->request->post['collivery_location_type'])
+				? $this->request->post['collivery_location_type']
+				: null;
 
                 ]]>
             </add>
@@ -154,9 +160,15 @@
 
                    $this->session->data['guest']['telephone'] = $this->request->post['telephone'];
                     /** @collivery-data */
-                    $this->session->data['guest']['collivery_town'] = $this->request->post['collivery_town'];
-                    $this->session->data['guest']['collivery_suburb'] = $this->request->post['collivery_suburb'];
-                    $this->session->data['guest']['collivery_location_type'] = $this->request->post['collivery_location_type'];
+                    $this->session->data['guest']['collivery_town'] = isset($this->request->post['collivery_town'])
+                    ? $this->request->post['collivery_town']
+                    : null;
+                    $this->session->data['guest']['collivery_suburb'] = isset($this->request->post['collivery_suburb'])
+                    ? $this->request->post['collivery_suburb']
+                    : null;
+                    $this->session->data['guest']['collivery_location_type'] = isset($this->request->post['collivery_location_type'])
+                    ? $this->request->post['collivery_location_type']
+                    : null;
 
                     /** @endcollivery-data */
 
