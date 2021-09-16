@@ -45,8 +45,13 @@ class ControllerExtensionShippingMds extends Controller
         if (isset($this->request->post['download_error_logs'])) {
             $zipFile = $this->collivery->compressBacktraceFiles();
 
-            if ( ! $zipFile) {
-                $this->session->data['error'] = 'Could not store zip file on your server. No access.';
+            if ( ! $zipFile || ! file_exists($zipFile)) {
+
+                if (! is_dir(basename($zipFile))) {
+                    $this->session->data['success'] = 'No Collivery error logs written yet.';
+                } else {
+                    $this->session->data['error'] = 'Could not store zip file on your server. No access.';
+                }
 
                 $this->response->redirect(
                     $this->url->link('extension/shipping/mds', 'user_token='.$this->session->data['user_token'])
