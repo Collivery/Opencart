@@ -126,10 +126,12 @@ class ControllerExtensionShippingMds extends Controller
         // Render session messages to view
         if (isset($this->session->data['success'])) {
             $data['success'] = $this->session->data['success'];
+            $this->session->data['success'] = null;
         }
 
         if (isset($this->session->data['error'])) {
             $data['error_warning'] .= $this->session->data['error'];
+            $this->session->data['error'] = null;
         }
 
         $data['breadcrumbs']   = [];
