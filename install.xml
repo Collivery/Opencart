@@ -417,16 +417,6 @@
                 ]]>
             </add>
         </operation>
-        <operation>
-            <search>
-                <![CDATA[$data['footer'] = $this->load->controller('common/footer');]]>
-            </search>
-            <add position="after">
-                <![CDATA[
-                       $data['tab_mds'] = "Collivery.net";
-                ]]>
-            </add>
-        </operation>
     </file>
     <file path="catalog/controller/checkout/checkout.php">
         <operation>
