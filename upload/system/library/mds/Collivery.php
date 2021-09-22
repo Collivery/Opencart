@@ -1,56 +1,94 @@
 <?php
-/** @noinspection PhpMultipleClassDeclarationsInspection */
-
 /** @noinspection PhpUnused */
+/** @noinspection PhpUnusedPrivateMethodInspection */
+/** @noinspection PhpMultipleClassDeclarationsInspection */
 
 namespace Mds;
 
+require_once 'debug.php';
+
 class Collivery
 {
+    const PLUGIN_VERSION = '1.2.0';
     const ENDPOINT = 'https://collivery.co.za/wsdl/v2';
     const CACHE_PREFIX = 'collivery_net.';
 
-    private static $demoAccount = ['user_email' => 'api@collivery.co.za', 'user_password' => 'api123'];
+    public static $demoAccount = ['user_email' => 'api@collivery.co.za', 'user_password' => 'api123'];
 
     protected $token;
     protected $client;
+    /** @var object|\stdClass */
     protected $config;
     protected $errors = [];
     protected $cacheEnabled = true;
-    protected $default_address_id;
+    protected $auth_data = [];
     protected $client_id;
     protected $user_id;
     protected $log;
     protected $cache;
 
     /**
-     * Setup class with basic Config
-     *
-     * @param array $config Configuration Array
-     * @param       $cache
+     * @param \Registry $registry
      */
-    public function __construct(array $config = [], $cache = null)
+    public function __construct($registry)
     {
+        // We are upgrading from an older version
+        if (!($registry instanceof \Registry)) {
+            $this->cache = new Cache(DIR_CACHE);
 
-        $config['cache_dir'] = isset($config['cache_dir']) ? $config['cache_dir'] : basename(__DIR__);
-        $this->cache         = $cache ?: new Cache($config['cache_dir']);
-        $this->cacheEnabled  = (bool)(isset($config['enable_cache']) ? $config['enable_cache'] : $this->cacheEnabled);
-        $this->log           = isset($config['log']) ? $config['log'] : new Log;
-
-        if ((isset($config['demo']) && $config['demo']) || ! $config['user_email']) {
-            $config = array_merge($config, self::$demoAccount);
+            return;
         }
 
-        $this->config = (object)$config;
+        /** @var \Config $config */
+        $config = $registry->get('config');
+        /** @var \Log $log */
+        $log = $registry->get('log');
+        /** @var \Request $request */
+        $request = $registry->get('request');
+
+        $username = $config->get('shipping_mds_username') ?: '';
+        $password = $config->get('shipping_mds_password') ?: '';
+        if ($config->has('shipping_mds_is_demo')) {
+            $demo = (bool) $config->get('shipping_mds_is_demo');
+        } else {
+            $demo = true;
+        }
+
+        $cacheDir = DIR_CACHE.'mds/';
+        $logDir   = DIR_LOGS.'mds/';
+        $appUrl   = $request->server['HTTP_HOST'];
+
+        $this->cache        = new Cache($cacheDir);
+        $this->cacheEnabled = true;
+        $this->log          = new Log($logDir);
+
+        if ($demo || ! $username) {
+            $demo     = true;
+            $username = self::$demoAccount['user_email'];
+            $password = self::$demoAccount['user_password'];
+        }
+
+        $this->config = (object)[
+            'log'           => $log,
+            'cache_dir'     => $cacheDir,
+            'log_dir'       => $logDir,
+            'app_name'      => 'MDS Collivery.net',
+            'app_version'   => '1.2.0',
+            'app_host'      => 'Opencart '.VERSION,
+            'app_url'       => $appUrl,
+            'user_email'    => $username,
+            'user_password' => $password,
+            'demo'          => $demo,
+        ];
     }
 
     /**
      * Any method called from this class goes via the magic call
      * We want to make sure that we clear all errors that were generated
-     * before before calling another method, we also want to ensure that
-     * Soap client is initialized before calling any method from it
+     * before calling another method, we also want to ensure that
+     * Soap client is initialized before calling any method from it.
      * We also want to make sure that a collivery client is authenticated
-     *if the conditions above do not succeed, return errors stating reason
+     * if the conditions above do not succeed, return errors stating reason
      * for failure for each
      *
      * @param $method
@@ -96,27 +134,34 @@ class Collivery
         $cacheKey = 'auth';
         $auth     = $this->getCache($cacheKey);
 
+
+        // Keep for BC, allows for the code to keep running between upgrading versions
+        if (!$this->config) {
+            return $this;
+        }
+
+        $config   = (object) $this->config;
         $isSameUser = $auth &&
-                      isset($auth['user_email'], $this->config->user_email) &&
-                      ! strcasecmp($this->config->user_email, $auth['user_email']);
+                      isset($auth['user_email'], $config->user_email) &&
+                      ! strcasecmp($config->user_email, $auth['user_email']);
 
         if ($isSameUser) {
-            $this->default_address_id = $auth['default_address_id'];
-            $this->client_id          = $auth['client_id'];
-            $this->user_id            = $auth['user_id'];
-            $this->token              = $auth['token'];
+            $this->auth_data = $auth;
+            $this->client_id = $auth['client_id'];
+            $this->user_id   = $auth['user_id'];
+            $this->token     = $auth['token'];
 
             return $this;
         }
 
-        $user_email    = strtolower($this->config->user_email);
-        $user_password = $this->config->user_password;
+        $user_email    = strtolower($config->user_email);
+        $user_password = $config->user_password;
 
-        $config = [
-            'name'    => $this->config->app_name,
-            'version' => $this->config->app_version,
-            'host'    => $this->config->app_host,
-            'url'     => $this->config->app_url,
+        $authConfig = [
+            'name'    => $config->app_name,
+            'version' => $config->app_version,
+            'host'    => $config->app_host,
+            'url'     => $config->app_url,
             'lang'    => 'PHP '.PHP_VERSION,
         ];
 
@@ -126,15 +171,15 @@ class Collivery
         }
 
         try {
-            $authenticate = $this->client->authenticate($user_email, $user_password, $this->token, $config);
+            $authenticate = $this->client->authenticate($user_email, $user_password, $this->token, $authConfig);
 
             if ($authenticate) {
+                $this->auth_data = $authenticate;
 
                 if ($this->cacheEnabled) {
                     $this->setCache($cacheKey, $authenticate, 59);
                 }
 
-                $this->default_address_id = $authenticate['default_address_id'];
                 $this->client_id          = $authenticate['client_id'];
                 $this->user_id            = $authenticate['user_id'];
                 $this->token              = $authenticate['token'];
@@ -178,25 +223,15 @@ class Collivery
         } else {
             $this->setError($e->getCode(), $e->getMessage());
         }
-        $backtrace = debug_backtrace();
+        $backtrace = debug_backtrace(DEBUG_BACKTRACE_PROVIDE_OBJECT, 6);
         // remove the call to `catchException()` - that's not useful in the stacktrace
         array_shift($backtrace);
 
-        $this->setError(
-            array_map(function (array $trace) {
-                return array_map(function ($value, $key) {
-                    if (is_array($value)) { // it's the `args`
-                        return implode(', ', $value).'</br>';
-                    }
-
-                    return "$value $key </br>";
-                }, array_values($trace), array_keys($trace));
-            }, $backtrace)
-        );
+        $this->logBacktrace($e->getMessage(), $backtrace);
     }
 
     /**
-     * @param int|array $id
+     * @param string|int|array $id
      * @param string|null $text
      *
      * @return $this
@@ -229,6 +264,31 @@ class Collivery
             return;
         }
         $this->log->write("collivery_net_error: {$message}");
+    }
+
+    public function logBacktrace($message, array $backtrace)
+    {
+        $extra = debug($backtrace);
+
+        // Use the mds log class, writes to a separate file
+        (new Log($this->config->log_dir))->write($message.PHP_EOL.$extra);
+    }
+
+    public function compressBacktraceFiles()
+    {
+        $zip      = new \ZipArchive();
+        $filename = $this->config->log_dir."mds-errors.zip";
+        if ( ! $zip->open($filename, \ZipArchive::CREATE)) {
+            return;
+        }
+
+        foreach (glob($this->config->log_dir.'/*.log') as $file) {
+            $zip->addFile($file, basename($file));
+        }
+
+        $zip->close();
+
+        return $filename;
     }
 
     /**
@@ -278,7 +338,7 @@ class Collivery
     /**
      * @param     $key
      * @param     $value
-     * @param int $ttl
+     * @param int $ttl in Minutes
      *
      * @return bool
      */
@@ -332,6 +392,12 @@ class Collivery
 
         return $this;
     }
+
+    public function clearCache()
+    {
+        $this->cache->clear();
+    }
+
     /**
      * @param $results
      *
@@ -462,7 +528,7 @@ class Collivery
             }
         }
 
-        return $this->errorsOrResponse($addresses);
+        return $addresses;
     }
 
     /**
@@ -784,27 +850,48 @@ class Collivery
     }
 
     /**
-     * @return array
+     * Returns the clients default address and contacts
+     *
+     * @return <int, int, int>[] Address data
      */
     private function getDefaultAddress()
     {
-        $default_address_id = $this->getDefaultAddressId();
+        $defaultAddressId = $this->getDefaultAddressId();
 
         return [
-            'address'            => $this->getAddress($default_address_id),
-            'default_address_id' => $default_address_id,
-            'contacts'           => $this->getContacts($default_address_id),
+            'address'            => $this->getAddress($defaultAddressId),
+            'default_address_id' => $defaultAddressId,
+            'contacts'           => $this->getContacts($defaultAddressId),
         ];
     }
 
     /**
-     * Returns the clients default address
+     * Returns the clients default address id
      *
      * @return int Address ID
      */
-    private function getDefaultAddressId()
+    public function getDefaultAddressId()
     {
-        return $this->default_address_id;
+        // Ensure we have the `default_address_id` set from API
+        // We will use that if there is no locally chosen Setting for it
+        if (empty($this->auth_data)) {
+            $this->authenticate();
+        }
+
+        $cacheKey = 'default_address_id.'.$this->client_id;
+
+        return (int) $this->getCache($cacheKey) ?: $this->auth_data['default_address_id'];
+    }
+
+    /**
+     * Stores the shop's locally chosen default address id
+     */
+    public function setDefaultAddressId(int $defaultAddressId)
+    {
+        $cacheKey = 'default_address_id.'.$this->client_id;
+        $oneCentury = 52594876;
+
+        $this->setCache($cacheKey, $defaultAddressId, $oneCentury);
     }
 
     /**
@@ -823,6 +910,10 @@ class Collivery
      */
     private function validate(array $data)
     {
+        if ( ! isset($data['collivery_from']) ) {
+            $data['collivery_from'] = $this->getDefaultAddressId();
+        }
+
         $contacts_from = $this->getContacts($data['collivery_from']);
         $contacts_to   = $this->getContacts($data['collivery_to']);
         $parcel_types  = $this->getParcelTypes();
@@ -978,6 +1069,7 @@ class Collivery
      * @param array $data
      *
      * @return array
+     * @throws ColliveryException
      */
     private function addCollivery(array $data)
     {
@@ -1157,7 +1249,7 @@ class Cache
     /**
      * @param     $name
      * @param     $value
-     * @param int $time
+     * @param int $time in Minutes
      *
      * @return bool
      */
@@ -1190,6 +1282,13 @@ class Cache
 
         return false;
     }
+
+    public function clear()
+    {
+        foreach (glob($this->cache_dir.'*') as $file) {
+            file_exists($file) && unlink($file);
+        }
+    }
 }
 
 /**
@@ -1201,9 +1300,9 @@ class Log
 {
     private $logPath;
 
-    public function __construct()
+    public function __construct($dir)
     {
-        $this->logPath = basename(__DIR__);
+        $this->logPath = $dir;
     }
 
     /**
@@ -1211,12 +1310,20 @@ class Log
      */
     public function write($message)
     {
-        chmod($this->logPath, 0777);
-        file_put_contents(
-            $this->logPath.'/collivery.net_error_logs'.date('Ymd').'.log',
-            "{$message}\n",
-            FILE_APPEND
+        // Convoluted logic to prevent race condition errors
+        if (! is_dir($concurrentDirectory = $this->logPath)  && ! @mkdir($concurrentDirectory) && ! is_dir($concurrentDirectory)) {
+            throw new \RuntimeException(sprintf('Directory "%s" was not created', $concurrentDirectory));
+        }
+        chmod($this->logPath, 0775);
+        $file = fopen($this->logPath.'/collivery.net_error-'.date('Ymd').'.log', 'a');
+        fwrite(
+            $file,
+            sprintf(
+                "[%s] ERROR : %s\n",
+                date('Y-m-d H:i:s'),
+                $message
+            )
         );
+        fclose($file);
     }
-
 }

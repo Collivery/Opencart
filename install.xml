@@ -2,7 +2,8 @@
 <modification>
     <name>Collivery.net Extension For Opencart v3.0.3.x</name>
     <code>mds</code>
-    <version>1.1.0</version>
+    <!--  Also modify Collivery.php::PLUGIN_VERSION -->
+    <version>1.2.0</version>
     <author>MDS Technologies</author>
     <link>https://collivery.net</link>
     <!-- CONTROLLERS -->
@@ -32,57 +33,24 @@
         </operation>
 
     </file>
-    <file path="system/engine/controller.php">
+    <file path="admin/controller/startup/startup.php|catalog/controller/startup/startup.php">
         <operation>
             <search>
-                <![CDATA[public function __get($key) {]]>
+                <![CDATA[$this->registry->set('encryption', new Encryption($this->config->get('config_encryption')));]]>
             </search>
             <add position="after">
                 <![CDATA[
 
         /** @collivery-config */
-        if(!$this->registry->has('collivery')){
-            $query = $this->registry->get('db')->query("SELECT
-                   p.value AS '0',
-                   u.value AS '1',
-                   d.value AS '2'
-            FROM `".DB_PREFIX."setting` AS p
-            LEFT JOIN `".DB_PREFIX."setting` AS u on(u.`code` = p.`code`)
-            LEFT JOIN `".DB_PREFIX."setting` AS d on(d.`code` = p.`code`)
-            WHERE p.`code`='shipping_mds'
-              AND u.`code`='shipping_mds'
-              AND d.`code`='shipping_mds'
-              AND p.`key`='shipping_mds_password'
-              AND u.`key`='shipping_mds_username'
-              AND d.`key`='shipping_mds_is_demo'");
-            if (!$query->num_rows) {
-                $is_demo = true;
-                $username = '';
-                $password = '';
-            } else {
-                list($password, $username, $is_demo) = $query->row;
+        $colliveryLibrary = DIR_SYSTEM.'library/mds/Collivery.php';
+        if (is_file($colliveryLibrary)) {
+            include_once $colliveryLibrary;
+            $collivery = new \Mds\Collivery($this->registry);
+            if ($collivery->authenticate() && $collivery->isAuthError()) {
+                $this->registry->set('error', ['warning' => 'Collivery.net Shipping Plugin Login Error']);
             }
-            $config = [
-                'log' => $this->registry->get('log'),
-                'cache_dir' => DIR_CACHE.'/mds/',
-                'app_name' => 'MDS Collivery.net',
-                'app_version' => '1.0.4',
-                'app_host' => 'Opencart ' . VERSION,
-                'app_url' => $_SERVER['HTTP_HOST'],
-                'user_email' => $username ,
-                'user_password' => $password,
-                'demo' =>  $is_demo
-            ];
 
-            $collivery_library = DIR_SYSTEM . 'library/mds/Collivery.php';
-            if(is_file($collivery_library)){
-                include_once $collivery_library;
-                $this->registry->set('collivery', new \Mds\Collivery($config));
-                $collivery = $this->registry->get('collivery');
-                if($collivery->authenticate() &&  $collivery->isAuthError()){
-                    $this->registry->set('error', ['warning' => 'Collivery.net Shipping Plugin Auth Error']);
-                }
-            }
+            $this->registry->set('collivery', $collivery);
         }
         /** @endcollivery-config */
 
@@ -170,9 +138,15 @@
                 <![CDATA[
 
                 $this->session->data['shipping_address']['zone_id'] = $this->request->post['zone_id'];
-				$this->session->data['shipping_address']['collivery_town'] = $this->request->post['collivery_town'];
-				$this->session->data['shipping_address']['collivery_suburb'] = $this->request->post['collivery_suburb'];
-				$this->session->data['shipping_address']['collivery_location_type'] = $this->request->post['collivery_location_type'];
+				$this->session->data['shipping_address']['collivery_town'] = isset($this->request->post['collivery_town'])
+				? $this->request->post['collivery_town']
+				: null;
+				$this->session->data['shipping_address']['collivery_suburb'] = isset($this->request->post['collivery_suburb'])
+				? $this->request->post['collivery_suburb']
+				: null;
+				$this->session->data['shipping_address']['collivery_location_type'] = isset($this->request->post['collivery_location_type'])
+				? $this->request->post['collivery_location_type']
+				: null;
 
                 ]]>
             </add>
@@ -186,9 +160,15 @@
 
                    $this->session->data['guest']['telephone'] = $this->request->post['telephone'];
                     /** @collivery-data */
-                    $this->session->data['guest']['collivery_town'] = $this->request->post['collivery_town'];
-                    $this->session->data['guest']['collivery_suburb'] = $this->request->post['collivery_suburb'];
-                    $this->session->data['guest']['collivery_location_type'] = $this->request->post['collivery_location_type'];
+                    $this->session->data['guest']['collivery_town'] = isset($this->request->post['collivery_town'])
+                    ? $this->request->post['collivery_town']
+                    : null;
+                    $this->session->data['guest']['collivery_suburb'] = isset($this->request->post['collivery_suburb'])
+                    ? $this->request->post['collivery_suburb']
+                    : null;
+                    $this->session->data['guest']['collivery_location_type'] = isset($this->request->post['collivery_location_type'])
+                    ? $this->request->post['collivery_location_type']
+                    : null;
 
                     /** @endcollivery-data */
 
@@ -216,10 +196,11 @@
             <add position="before">
                 <![CDATA[
 
-    public function createColliveryAddress(){
+    public function createColliveryAddress()
+    {
         $order_id = $this->request->get['order_id'];
         if($order_id){
-            $order_object = (object) $this->db->query('select * from '. DB_PREFIX . "order where order_id='$order_id'")->row;
+            $order_object = (object) $this->db->query('select * from '. DB_PREFIX . "order where order_id='".$this->db->escape($order_id)."'")->row;
             $post_data = (object) $this->request->post;
             if(!$order_object->waybill_id || ($order_object->collivery_town != $post_data->shipping_collivery_town || $order_object->collivery_suburb != $post_data->shipping_collivery_suburb)){ //if address is not created
                 $address_data['street'] = $order_object->shipping_address_1;
@@ -248,7 +229,7 @@
                 }
 
                 list('address_id' => $address_id, 'contact_id' => $contact_id) = $results;
-                $this->db->query('update ' .DB_PREFIX . 'order set collivery_town="'. $address_data['town_id']. '", collivery_suburb="'. $address_data['suburb_id']. '", collivery_location_type="'. $address_data['location_type']. '", collivery_to_address_id="' . $address_id .'", collivery_to_contact_id="' . $contact_id . '" where order_id="' . $order_object->order_id . '"');
+                $this->db->query('update ' .DB_PREFIX . 'order set collivery_town="'. $this->db->escape($address_data['town_id']). '", collivery_suburb="'. $this->db->escape($address_data['suburb_id']). '", collivery_location_type="'. $this->db->escape($address_data['location_type']). '", collivery_to_address_id="' . $this->db->escape($address_id) .'", collivery_to_contact_id="' . $this->db->escape($contact_id) . '" where order_id="' . $this->db->escape($order_object->order_id) . '"');
             }
             $this->acceptAndCreateWaybill($order_id);
         }
@@ -256,7 +237,7 @@
 
     public function acceptAndCreateWaybill($order_id)
     {
-        $data = $this->db->query("select * from " . DB_PREFIX . "order where order_id='$order_id'")->row;
+        $data = $this->db->query("select * from " . DB_PREFIX . "order where order_id='".$this->db->escape($order_id)."'")->row;
         if($data['collivery_from_address_id'] && $data['collivery_to_address_id']){ //if waybill is not created
             $data_object = (object) $data;
             $quote['parcels'] = [];
@@ -283,11 +264,11 @@
             $validated_collivery_data = $this->collivery->validate($quote);
             if($validated_collivery_data){
                 $data['quote_data'] = $validated_collivery_data;
-                $check = $this->db->query('select waybill_id from ' .DB_PREFIX . 'order where order_id="' . $data_object->order_id . '"')->row['waybill_id'];
+                $check = $this->db->query('select waybill_id from ' .DB_PREFIX . 'order where order_id="' . $this->db->escape($data_object->order_id) . '"')->row['waybill_id'];
                 if(!$check) {
                     try {
                         $waybill_id = $this->collivery->addCollivery($validated_collivery_data);
-                        $this->db->query('update ' .DB_PREFIX . "order set `collivery_price_data`='". json_encode($validated_collivery_data)."', waybill_id='" . $waybill_id . "' where order_id='" . $data_object->order_id . "'");
+                        $this->db->query('update ' .DB_PREFIX . "order set `collivery_price_data`='". json_encode($validated_collivery_data)."', waybill_id='" . $this->db->escape($waybill_id) . "' where order_id='" . $this->db->escape($data_object->order_id) . "'");
                         if($this->config->get('shipping_mds_auto_accept_waybill')){
                             $this->collivery->acceptCollivery($waybill_id);
                         }
@@ -302,7 +283,7 @@
             }
         }
 
-        $data = $this->db->query("select * from " . DB_PREFIX . "order where order_id='$order_id'")->row;
+        $data = $this->db->query("select * from " . DB_PREFIX . "order where order_id='" . $this->db->escape($order_id) . "'")->row;
 
         $waybill_id = $data['waybill_id'];
         $waybill_status = $this->collivery->getColliveryStatus($waybill_id);
@@ -346,7 +327,7 @@
 
             $data['collivery_services'] = $this->collivery->getServices();
 
-            $order = $this->db->query('select * from ' . DB_PREFIX . 'order where order_id=' . $data['order_id'] )->row;
+            $order = $this->db->query('select * from ' . DB_PREFIX . 'order where order_id="' . $this->db->escape($data['order_id']).'"')->row;
 
             foreach ($order as $column => $column_value){
                 $data[$column] = $column_value;
@@ -357,7 +338,7 @@
                 list('address_id' => $address_id) = $address['address'];
                 list('contact_id' => $contact_id) = current($address['contacts']);
                 $data['collivery_from_address_id'] = $address_id;
-                $this->db->query('update ' .DB_PREFIX . 'order set collivery_from_address_id="' . $address_id . '", collivery_from_contact_id="' . $contact_id .'" where order_id="' . $data['order_id'] . '"');
+                $this->db->query('update ' .DB_PREFIX . 'order set collivery_from_address_id="' . $this->db->escape($address_id) . '", collivery_from_contact_id="' . $this->db->escape($contact_id) .'" where order_id="' . $this->db->escape($data['order_id']) . '"');
             }
 
             //Collivery collection address
@@ -430,19 +411,9 @@
             <add position="after">
                 <![CDATA[
 
-                    $this->load->language('extension/shipping/mds');
+                    $this->load->language('extension/shipping/mds', 'collivery_lang');
                     $data = $this->language->all();
 
-                ]]>
-            </add>
-        </operation>
-        <operation>
-            <search>
-                <![CDATA[$data['footer'] = $this->load->controller('common/footer');]]>
-            </search>
-            <add position="after">
-                <![CDATA[
-                       $data['tab_mds'] = "Collivery.net";
                 ]]>
             </add>
         </operation>
@@ -601,7 +572,7 @@
                 <![CDATA[
 
                     /** @collivery-data */
-					    $this->session->data['collivery_collection_address'] = $this->db->query("select * from " . DB_PREFIX . "address where address_id='$address_id'")->row;
+                    $this->session->data['collivery_collection_address'] = $this->db->query("select * from " . DB_PREFIX . "address where address_id='" . $this->db->escape($address_id) . "'")->row;
                     /** @endcollivery-data */
 
                 ]]>
@@ -643,7 +614,7 @@
         /** @collivery-data */
         if(isset($this->request->post['address_id'])){
             $address_id = $this->request->post['address_id'];
-            $result = $this->db->query("select collivery_town, collivery_suburb, collivery_location_type from " . DB_PREFIX . "address where address_id='$address_id'");
+            $result = $this->db->query("select collivery_town, collivery_suburb, collivery_location_type from " . DB_PREFIX . "address where address_id='" . $this->db->escape($address_id) . "'");
             if($result->num_rows){
                 $address = (object) $result->row;
                 if(!$address->collivery_town || !$address->collivery_suburb || !$address->collivery_location_type){
@@ -791,7 +762,7 @@ var user_token = user_token || url.searchParams.get('user_token');
                     var waybill_service = response.waybill_service;
                     var collivery_from = response.collivery_from;
                     var collivery_to = response.collivery_to;
-                    var delivery_date = response.delivery_dat;
+                    var delivery_date = response.delivery_date;
                     var html = '<div class="row">' +
                         '  <div class="col-md-4 text-left">' +
                         '      <h4>' +
@@ -870,7 +841,7 @@ var user_token = user_token || url.searchParams.get('user_token');
 
                     <li class="disabled">
                         <a href="#tab-mds" data-toggle="tab">
-                            5. {{ tab_collivery }}
+                            5. {{ collivery_lang.get('tab_collivery') }}
                         </a>
                     </li>
                     <li class="disabled">
@@ -1008,7 +979,7 @@ var user_token = user_token || url.searchParams.get('user_token');
     </file>
     <!-- End Admin Views -->
     <!-- Catalog views -->
-    <file path="catalog/view/theme/default/template/checkout/checkout.twig|catalog/view/theme/default/template/account/address_form.twig">
+    <file path="catalog/view/theme/*/template/checkout/checkout.twig|catalog/view/theme/*/template/account/address_form.twig">
         <operation>
             <search index="0">
                 <![CDATA[</script>]]>
@@ -1053,7 +1024,7 @@ var user_token = user_token || url.searchParams.get('user_token');
             </add>
         </operation>
     </file>
-    <file path="catalog/view/theme/default/template/checkout/guest.twig|catalog/view/theme/default/template/checkout/guest_shipping.twig|catalog/view/theme/default/template/checkout/register.twig|catalog/view/theme/default/template/checkout/shipping_address.twig|catalog/view/theme/default/template/checkout/payment_address.twig|catalog/view/theme/default/template/account/edit.twig|catalog/view/theme/default/template/account/address_form.twig">
+    <file path="catalog/view/theme/*/template/checkout/guest.twig|catalog/view/theme/*/template/checkout/guest_shipping.twig|catalog/view/theme/*/template/checkout/register.twig|catalog/view/theme/*/template/checkout/shipping_address.twig|catalog/view/theme/*/template/checkout/payment_address.twig|catalog/view/theme/*/template/account/edit.twig|catalog/view/theme/*/template/account/address_form.twig">
         <operation error="skip">
             <search>
                 <![CDATA[name="custom_field[{{ custom_field.location }}][{{ custom_field.custom_field_id }}]"]]>
@@ -1315,6 +1286,7 @@ var user_token = user_token || url.searchParams.get('user_token');
                     var waybill_service = '';
                     var collivery_from = response.collivery_from;
                     var collivery_to = response.collivery_to;
+                    var delivery_date = response.delivery_date;
                     var html = '<div class="row">' +
                       '  <div class="col-md-4 text-left">' +
                       '      <h4>' +
@@ -1413,7 +1385,6 @@ var user_token = user_token || url.searchParams.get('user_token');
                         }else{
                             $data_array = $suburbs;
                         }
-                        $custom_field_value_query->rows[] = ['custom_field_value_id' => 0, 'name' => 'Select ' . $custom_field['name']];
                         foreach ($data_array as $id => $name){
                             $custom_field_value_query->rows[] = ['custom_field_value_id' => $id, 'name' => $name];
                         }
@@ -1452,7 +1423,7 @@ var user_token = user_token || url.searchParams.get('user_token');
                 <![CDATA[
 
             /** @collivery-data **/
-        $query = $this->db->query("select * from " . DB_PREFIX . "custom_field_description where custom_field_id={$custom_field_id}");
+        $query = $this->db->query("select * from " . DB_PREFIX . "custom_field_description where custom_field_id='". $this->db->escape($custom_field_id) . "'");
         if($query->num_rows){
             if($query->row['name'] === 'Town' || $query->row['name'] === 'Suburb' || $query->row['name'] === 'Location Type' && $this->collivery && !$this->collivery->hasErrors()){
                 $locationtype = $this->collivery->getLocationTypes();

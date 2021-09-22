@@ -17,14 +17,17 @@
     </div>
     <div class="container-fluid">
         {% if error_warning %}
-            <div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i>{{ error_warning }}
+            <div class="alert alert-danger">
+                <i class="fa fa-exclamation-circle"></i>{{ error_warning }}
                 <button type="button" class="close" data-dismiss="alert">&times;</button>
             </div>
-        {% endif %}{% if mdsErrors %}{% for mdsError in mdsErrors %}
-            <div class="alert alert-danger"><i class="fa fa-exclamation-circle"></i>{{ mdsError.text }}
+        {% endif %}
+        {% if success %}
+            <div class="alert alert-success">
+                <i class="fa fa-check-circle"></i>{{ success }}
                 <button type="button" class="close" data-dismiss="alert">&times;</button>
             </div>
-        {% endfor %}{% endif %}
+        {% endif %}
 
 
         <div class="panel panel-default">
@@ -33,7 +36,20 @@
             </div>
             <div class="panel-body">
 
-                <form action="" method="post" enctype="multipart/form-data" id="form-mds" class="form-horizontal">
+                <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-mds-cache" class="row">
+                    <div class="col-sm-2"></div>
+                    <div class="col-sm-5">
+                        <button type="submit" class="btn btn-primary" name="clear_cache">
+                            Clear MDS Cache
+                        </button>
+                    </div>
+                    <div class="col-sm-5">
+                        <button type="submit" class="btn btn-primary" name="download_error_logs">
+                            Download error logs
+                        </button>
+                    </div>
+                </form>
+                <form action="{{ action }}" method="post" enctype="multipart/form-data" id="form-mds" class="form-horizontal">
                     <div class="form-group">
                         <label class="col-sm-2 control-label" for="input-status">{{ entry_status }}</label>
                         <div class="col-sm-10">
@@ -144,14 +160,12 @@
                         </label>
                         <div class="col-sm-10">
                             <label class="col-sm- control-label" for="input-cover">
-                                {% set checked = shipping_mds_cover is same as(1) ? 1 : 0 %}
-
                                 {{ text_yes }}
-                                <input type="radio" name="shipping_mds_cover" {{ checked }} value="1"/>
+                                <input type="radio" name="shipping_mds_cover" {{ shipping_mds_cover == "1" ? ' checked' : null }} value="1"/>
                             </label>
                             <label class="col-sm-3 control-label" for="input-cover">
                                 {{ text_no }}
-                                <input type="radio" name="shipping_mds_cover" {{ not checked }} value="0"/>
+                                <input type="radio" name="shipping_mds_cover" {{ shipping_mds_cover == "0" ? ' checked' : null }} value="0"/>
                             </label>
                         </div>
                     </div>
@@ -161,14 +175,12 @@
                         </label>
                         <div class="col-sm-10">
                             <label class="col-sm- control-label" for="input-rica">
-                                {% set checked = shipping_mds_rica is same as(1) ? 1 : 0 %}
-
                                 {{ text_yes }}
-                                <input type="radio" name="shipping_mds_rica" {{ checked }} value="1"/>
+                                <input type="radio" name="shipping_mds_rica" {{ shipping_mds_rica == "1" ? ' checked' : null }} value="1"/>
                             </label>
                             <label class="col-sm-3 control-label" for="input-rica">
                                 {{ text_no }}
-                                <input type="radio" name="shipping_mds_rica" {{ not checked }} value="0"/>
+                                <input type="radio" name="shipping_mds_rica" {{ shipping_mds_rica == "0" ? ' checked' : null }} value="0"/>
                             </label>
                         </div>
                     </div>
@@ -176,9 +188,9 @@
                         <label class="col-sm-2 control-label" for="input-demo">
                             <span data-toggle="tooltip">{{ entry_default_collection_address }}</span> </label>
                         <div class="col-sm-10">
-                            <select class="form-control" name="default_address_id" id="input-demo">
-                                {% for address_id, address in default_collivery_from_addresses %}
-                                    <option {{ address_id == default_address_id ? 'selected' : '' }} value="{{ address_id }}">{{ address.nice_address }}</option>
+                            <select class="form-control" name="shipping_mds_default_address_id">
+                                {% for address_id, address in addresses %}
+                                    <option {{ address_id == shipping_mds_default_address_id ? 'selected' : '' }} value="{{ address_id }}">{{ address.nice_address }}</option>
                                 {% endfor %}
                             </select>
                         </div>

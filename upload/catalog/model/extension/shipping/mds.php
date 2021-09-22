@@ -5,14 +5,6 @@ use Mds\MdsColliveryService;
 
 class ModelExtensionShippingMds extends Model
 {
-    /**
-     * @var MdsAddress
-     */
-    /**
-     * ModelExtensionShippingMds constructor.
-     *
-     * @param $registry
-     */
     public function __construct($registry)
     {
         parent::__construct($registry);
@@ -30,7 +22,7 @@ class ModelExtensionShippingMds extends Model
     {
         if (isset($address['address_id']) && $address['address_id']) {
             $address = $this->db->query(
-                "select * from ".DB_PREFIX."address where address_id={$address['address_id']}"
+                "select * from ".DB_PREFIX."address where address_id='" . $this->db->escape($address['address_id']) . "'"
             )->row;
         }
         $parcel          = $this->cart->getProducts();
@@ -39,6 +31,18 @@ class ModelExtensionShippingMds extends Model
         $data['rica']    = 0;
         $quote_data      = [];
 
+        if ( ! isset($address['collivery_town']) || ! $address['collivery_town']) {
+            return [
+                'code'       => 'mds',
+                'title'      => 'MDS Collivery.net',
+                'quote'      => $quote_data,
+                'sort_order' => 1,
+                'error'      => 'Missing required data to get MDS Collivery quote.',
+            ];
+        }
+
+
+        $errors = [];
         if ( ! $this->collivery->hasErrors()) {
             foreach ($this->collivery->getServices() as $key => $service) {
                 $data            = $this->buildColliveryControlData($address, $parcel);
@@ -65,30 +69,35 @@ class ModelExtensionShippingMds extends Model
                 } else {
                     $data['rica'] = 0;
                 }
-                $price               = $this->getShippingCost($data);
-                $price_including_vat = (int)$price['price']['inc_vat'];
+                $price = $this->getShippingCost($data);
 
+                if ( ! isset($price['price'])) {
+                    $errors        = array_merge($errors, $price);
+                    $display_price = 0;
+                } else {
+                    $price_including_vat = (int)$price['price']['inc_vat'];
 
-                switch (true) {
-                    case ($service_markup_percentage >= 0 && $service_markup_percentage <= 1):
-                        break;
-                    case ($service_markup_percentage >= 1 && $service_markup_percentage <= 100):
-                        $service_markup_percentage = (float)($service_markup_percentage / 100);
-                        break;
-                    default:
-                        $service_markup_percentage = false;
-                        break;
+                    switch (true) {
+                        case ($service_markup_percentage >= 0 && $service_markup_percentage <= 1):
+                            break;
+                        case ($service_markup_percentage >= 1 && $service_markup_percentage <= 100):
+                            $service_markup_percentage = (float)($service_markup_percentage / 100);
+                            break;
+                        default:
+                            $service_markup_percentage = false;
+                            break;
+                    }
+                    /**
+                     * Display Price Formula: A = P(1+m)
+                     * A = $display_price
+                     * P = total price including VAT except client markup fee
+                     * m = Markup percentage
+                     */
+                    $display_price = $service_markup_percentage ? round(
+                        $price_including_vat * (1 + $service_markup_percentage),
+                        2
+                    ) : $price_including_vat;
                 }
-                /**
-                 * Display Price Formula: A = P(1+m)
-                 * A = $display_price
-                 * P = total price including VAT except client markup fee
-                 * m = Markup percentage
-                 */
-                $display_price    = $service_markup_percentage ? round(
-                    $price_including_vat * (1 + $service_markup_percentage),
-                    2
-                ) : $price_including_vat;
                 $quote_data[$key] = [
                     'code'         => 'mds.'.$key,
                     'title'        => $service_display_name,
@@ -98,21 +107,17 @@ class ModelExtensionShippingMds extends Model
                 ];
             }
             if ($quote_data) {
-                $method_data = [
+                return [
                     'code'       => 'mds',
                     'title'      => 'MDS Collivery.net',
                     'quote'      => $quote_data,
                     'sort_order' => 1,
-                    'error'      => '',
+                    'error'      => implode('.', $errors),
                 ];
-
-                return $method_data;
             }
         }
 
         return $quote_data;
-
-
     }
 
     /**
