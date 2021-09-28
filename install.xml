@@ -3,7 +3,7 @@
     <name>Collivery.net Extension For Opencart v3.0.3.x</name>
     <code>mds</code>
     <!--  Also modify Collivery.php::PLUGIN_VERSION -->
-    <version>1.2.0</version>
+    <version>1.2.1</version>
     <author>MDS Technologies</author>
     <link>https://collivery.net</link>
     <!-- CONTROLLERS -->

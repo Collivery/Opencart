@@ -24,7 +24,7 @@ use Mds\Collivery;
 class ControllerExtensionShippingMds extends Controller
 {
     private $error = [];
-
+    private $isDemo = false;
     public function index()
     {
         $this->load->language('extension/shipping/mds');
@@ -96,12 +96,28 @@ class ControllerExtensionShippingMds extends Controller
         }
         if ( ! isset($data['shipping_mds_username']) ) {
            $data['shipping_mds_username'] = Collivery::$demoAccount['user_email'];
+           $this->isDemo =true;
         }
         if ( ! isset($data['shipping_mds_password']) ) {
            $data['shipping_mds_password'] = Collivery::$demoAccount['user_password'];
         }
         if ( ! isset($data['shipping_mds_default_address_id']) ) {
            $data['shipping_mds_default_address_id'] = $this->collivery->getDefaultAddressId();
+        }
+        if ( ! isset($data['shipping_mds_is_auto_accept_waybill']) ) {
+            $data['shipping_mds_is_auto_accept_waybill'] = 0;
+        }
+        if ( ! isset($data['shipping_mds_is_auto_create_waybill']) ) {
+            $data['shipping_mds_is_auto_create_waybill'] = 0;
+        }
+        if ( ! isset($data['shipping_mds_is_demo']) ) {
+            $data['shipping_mds_is_demo'] = $this->isDemo;
+        }
+        if ( ! isset($data['shipping_mds_rica']) ) {
+            $data['shipping_mds_rica'] = 0;
+        }
+        if ( ! isset($data['shipping_mds_cover']) ) {
+            $data['shipping_mds_cover'] =0;
         }
 
         // Set inside `$this->validate()`

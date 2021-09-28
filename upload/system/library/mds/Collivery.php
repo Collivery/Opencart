@@ -9,7 +9,7 @@ require_once 'debug.php';
 
 class Collivery
 {
-    const PLUGIN_VERSION = '1.2.0';
+    const PLUGIN_VERSION = '1.2.1';
     const ENDPOINT = 'https://collivery.co.za/wsdl/v2';
     const CACHE_PREFIX = 'collivery_net.';
 
@@ -63,7 +63,7 @@ class Collivery
             'cache_dir'     => DIR_CACHE.'mds/',
             'log_dir'       => DIR_LOGS.'mds/',
             'app_name'      => 'MDS Collivery.net',
-            'app_version'   => '1.2.0',
+            'app_version'   => '1.2.1',
             'app_host'      => 'Opencart '.VERSION,
             'app_url'       => $appUrl,
             'user_email'    => $username,
