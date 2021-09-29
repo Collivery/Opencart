@@ -3,7 +3,7 @@
     <name>Collivery.net Extension For Opencart v3.0.3.x</name>
     <code>mds</code>
     <!--  Also modify Collivery.php::PLUGIN_VERSION -->
-    <version>1.2.0</version>
+    <version>1.2.1</version>
     <author>MDS Technologies</author>
     <link>https://collivery.net</link>
     <!-- CONTROLLERS -->
@@ -259,8 +259,8 @@
             $quote['contact_to'] = $data_object->collivery_to_contact_id;
             $quote['service'] = $service_type_id;
             $quote['collivery_type'] = 2; //package
-            $quote['cover'] = $this->config->get('mds_shipping_cover');
-            $quote['rica'] = $this->config->get('mds_shipping_rica');
+            $quote['cover'] = $this->config->get('shipping_mds_cover');
+            $quote['rica'] = $this->config->get('shipping_mds_rica');
             $validated_collivery_data = $this->collivery->validate($quote);
             if($validated_collivery_data){
                 $data['quote_data'] = $validated_collivery_data;
