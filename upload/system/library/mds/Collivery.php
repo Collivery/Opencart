@@ -63,7 +63,7 @@ class Collivery
             'cache_dir'     => DIR_CACHE.'mds/',
             'log_dir'       => DIR_LOGS.'mds/',
             'app_name'      => 'MDS Collivery.net',
-            'app_version'   => '1.2.1',
+            'app_version'   => self::PLUGIN_VERSION,
             'app_host'      => 'Opencart '.VERSION,
             'app_url'       => $appUrl,
             'user_email'    => $username,
