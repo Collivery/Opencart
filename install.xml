@@ -323,7 +323,11 @@
         $location_types = $this->collivery->getLocationTypes();
         $towns = $this->collivery->getTowns();
         $suburbs = $this->collivery->getAllSuburbs();
+
         if($data['is_mds']){
+
+            $data['addresses']  = $this->collivery->getAddresses();
+            $data['default_address_id'] = $this->config->get('shipping_mds_default_address_id');
 
             $data['collivery_services'] = $this->collivery->getServices();
 
@@ -897,7 +901,11 @@ var user_token = user_token || url.searchParams.get('user_token');
                      {% endif %}
                   </tr>
                   <tr>
-                     <td>{{ collivery_collection_address.nice_address }}</td>
+                     <td>{% if collivery_delivery_address is not empty  %}<select class="form-control" name="shipping_mds_default_address_id">
+                                {% for address_id, address in addresses %}
+                                    <option {{ address_id == default_address_id ? 'selected' : '' }} value="{{ address_id }}">{{ address.nice_address }}</option>
+                                {% endfor %}
+                            </select> {% else %}   {{ collivery_collection_address.nice_address }}</td>{% endif %}
                      {% if collivery_delivery_address is not empty %}
                      <td>{{ collivery_delivery_address.nice_address }}</td>
                      {% else %}
