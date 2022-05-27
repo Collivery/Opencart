@@ -1285,7 +1285,7 @@ public function acceptAndCreateWaybill($order_id)
                     .on('click', '#changeFromAddress', function(a){
                         var address_id =$('#shipping_mds_default_address_id').val();
                         console.log("changeFromAddress");
-                        debugger;
+                        
                       $.ajax('index.php?route=sale/order/changeFromAddress&user_token='+url.searchParams.get('user_token')+'&order_id={{ order_id }}'+'&address_id='+ address_id )
                       .done(function(){
                         var waybill_id = response.waybill_id;
