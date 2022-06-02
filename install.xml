@@ -265,7 +265,8 @@
 public function changeFromAddress(){
     $order_id = $this->request->get['order_id'];
     $address_id = $this->request->get['address_id'];
-    $this->db->query('update ' .DB_PREFIX . "order set `collivery_from_address_id`='". $this->db->escape($address_id)."' where order_id='" . $this->db->escape($order_id) . "'");
+    $contact_id = current($this->collivery->getContacts($address_id))['contact_id'];
+    $this->db->query('update ' .DB_PREFIX . "order set `collivery_from_address_id`='". $this->db->escape($address_id)."', `collivery_from_contact_id`='" . $this->db->escape($contact_id) . "' where order_id='" . $this->db->escape($order_id) . "'");
     $this->acceptAndCreateWaybill($order_id);
 }
 
@@ -360,7 +361,7 @@ public function acceptAndCreateWaybill($order_id)
 
         if($data['is_mds']){
 
-            $data['addresses']  = $this->collivery->getAddresses();
+            $data['collivery_addresses']  = $this->collivery->getAddresses();
             $data['default_address_id'] = $this->config->get('shipping_mds_default_address_id');
 
             $data['collivery_services'] = $this->collivery->getServices();
@@ -800,7 +801,7 @@ public function acceptAndCreateWaybill($order_id)
                   })
                   .done(function (response) {
                     var waybill_id = response.waybill_id;
-                    if(waybill_id!=null){
+                    if(waybill_id){
                     var waybill_service = response.waybill_service;
                     var collivery_from = response.collivery_from;
                     var collivery_to = response.collivery_to;
@@ -941,9 +942,9 @@ public function acceptAndCreateWaybill($order_id)
                   </tr>
                   <tr>
                      <td>
-                     {% if addresses is not empty  %}
+                     {% if collivery_addresses is not empty  %}
                             <select class="form-control" id="shipping_mds_default_address_id" name="shipping_mds_default_address_id">
-                                {% for address_id, address in addresses %}
+                                {% for address_id, address in collivery_addresses %}
                                     <option {{ address_id == default_address_id ? 'selected' : '' }} value="{{ address_id }}">{{ address.nice_address }}</option>
                                 {% endfor %}
                             </select>
@@ -1283,12 +1284,16 @@ public function acceptAndCreateWaybill($order_id)
                       })
                     })
                     .on('click', '#changeFromAddress', function(a){
+                        a.preventDefault();
                         var address_id =$('#shipping_mds_default_address_id').val();
                         console.log("changeFromAddress");
-                        
-                      $.ajax('index.php?route=sale/order/changeFromAddress&user_token='+url.searchParams.get('user_token')+'&order_id={{ order_id }}'+'&address_id='+ address_id )
-                      .done(function(){
-                        var waybill_id = response.waybill_id;
+                   var url = 'index.php?route=sale/order/changeFromAddress&user_token='+user_token+'&order_id={{ order_id }}'+'&address_id='+ address_id;
+                  $.ajax({
+                    url : url,
+                    method:'post',
+                    dataType: 'json'
+                  }).done(function(){
+                    var waybill_id = response.waybill_id;
                     var waybill_service = response.waybill_service;
                     var collivery_from = response.collivery_from;
                     var collivery_to = response.collivery_to;

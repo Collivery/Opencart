@@ -189,7 +189,7 @@
                             <span data-toggle="tooltip">{{ entry_default_collection_address }}</span> </label>
                         <div class="col-sm-10">
                             <select class="form-control" name="shipping_mds_default_address_id">
-                                {% for address_id, address in addresses %}
+                                {% for address_id, address in collivery_addresses %}
                                     <option {{ address_id == shipping_mds_default_address_id ? 'selected' : '' }} value="{{ address_id }}">{{ address.nice_address }}</option>
                                 {% endfor %}
                             </select>

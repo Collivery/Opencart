@@ -93,7 +93,7 @@ class ControllerExtensionShippingMds extends Controller
         );
 
         $data['user_token'] = $this->request->get['user_token'];
-        $data['addresses']  = $this->collivery->getAddresses();
+        $data['collivery_addresses']  = $this->collivery->getAddresses();
         $services           = $this->collivery->getServices();
         $data['services']   = $services;
 
