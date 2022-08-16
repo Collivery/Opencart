@@ -93,7 +93,7 @@ class ControllerExtensionShippingMds extends Controller
         );
 
         $data['user_token'] = $this->request->get['user_token'];
-        $data['addresses']  = $this->collivery->getAddresses();
+        $data['collivery_addresses']  = $this->collivery->getAddresses();
         $services           = $this->collivery->getServices();
         $data['services']   = $services;
 
@@ -114,11 +114,11 @@ class ControllerExtensionShippingMds extends Controller
         if ( ! isset($data['shipping_mds_default_address_id']) ) {
            $data['shipping_mds_default_address_id'] = $this->collivery->getDefaultAddressId();
         }
-        if ( ! isset($data['shipping_mds_is_auto_accept_waybill']) ) {
-            $data['shipping_mds_is_auto_accept_waybill'] = 0;
+        if ( ! isset($data['shipping_mds_auto_accept_waybill']) ) {
+            $data['shipping_mds_auto_accept_waybill'] = 0;
         }
-        if ( ! isset($data['shipping_mds_is_auto_create_waybill']) ) {
-            $data['shipping_mds_is_auto_create_waybill'] = 0;
+        if ( ! isset($data['shipping_mds_auto_create_waybill']) ) {
+            $data['shipping_mds_auto_create_waybill'] = 0;
         }
         if ( ! isset($data['shipping_mds_is_demo']) ) {
             $data['shipping_mds_is_demo'] = $this->isDemo;

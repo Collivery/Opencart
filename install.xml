@@ -3,7 +3,7 @@
     <name>Collivery.net Extension For Opencart v3.0.3.x</name>
     <code>mds</code>
     <!--  Also modify Collivery.php::PLUGIN_VERSION -->
-    <version>1.2.1</version>
+    <version>1.2.2</version>
     <author>MDS Technologies</author>
     <link>https://collivery.net</link>
     <!-- CONTROLLERS -->
@@ -196,115 +196,150 @@
             <add position="before">
                 <![CDATA[
 
-    public function createColliveryAddress()
-    {
-        $order_id = $this->request->get['order_id'];
-        if($order_id){
-            $order_object = (object) $this->db->query('select * from '. DB_PREFIX . "order where order_id='".$this->db->escape($order_id)."'")->row;
-            $post_data = (object) $this->request->post;
-            if(!$order_object->waybill_id || ($order_object->collivery_town != $post_data->shipping_collivery_town || $order_object->collivery_suburb != $post_data->shipping_collivery_suburb)){ //if address is not created
-                $address_data['street'] = $order_object->shipping_address_1;
-                $address_data['location_type'] = $post_data->shipping_collivery_location_type;
-                $address_data['suburb_id'] = $post_data->shipping_collivery_suburb;
-                $address_data['town_id'] = $post_data->shipping_collivery_town;
-                $address_data['custom_id'] = $order_object->customer_id;
-                $address_data['full_name'] = $order_object->firstname . ' ' . $order_object->lastname;
-                $address_data['cellphone'] = $order_object->telephone;
-                $address_data['phone'] = $order_object->telephone;
-                $address_data['email'] = $order_object->email;
+   public function createColliveryAddress()
+{
+    $order_id = $this->request->get['order_id'];
+    if($order_id){
+        $order_object = (object) $this->db->query('select * from '. DB_PREFIX . "order where order_id='".$this->db->escape($order_id)."'")->row;
+        $post_data = (object) $this->request->post;
+        if(!$order_object->waybill_id || ($order_object->collivery_town != $post_data->shipping_collivery_town || $order_object->collivery_suburb != $post_data->shipping_collivery_suburb)){ //if address is not created
+            $address_data['street'] = $order_object->shipping_address_1;
+            $address_data['location_type'] = $post_data->shipping_collivery_location_type;
+            $address_data['suburb_id'] = $post_data->shipping_collivery_suburb;
+            $address_data['town_id'] = $post_data->shipping_collivery_town;
+            $address_data['custom_id'] = $order_object->customer_id;
+            $address_data['full_name'] = $order_object->firstname . ' ' . $order_object->lastname;
+            $address_data['cellphone'] = $order_object->telephone;
+            $address_data['phone'] = $order_object->telephone;
+            $address_data['email'] = $order_object->email;
 
-                $results = $this->collivery->addAddress($address_data);
+            $results = $this->collivery->addAddress($address_data);
 
-                if (!isset($results['address_id'])) {
-                    $output = "";
-                    foreach((array) $results['errors'] as $error) {
-                        $output .= $error.PHP_EOL;
+            if (!isset($results['address_id'])) {
+                $output = "";
+                foreach((array) $results['errors'] as $error) {
+                    $output .= $error.PHP_EOL;
+                }
+
+                $this->response->addHeader($this->request->server['SERVER_PROTOCOL'] . '/1.1 400 Bad Request');
+                $this->response->addHeader('Content-Type: application/json');
+                $this->response->setOutput(json_encode(['errors' => $output]));
+
+                return;
+            }
+
+            list('address_id' => $address_id, 'contact_id' => $contact_id) = $results;
+            $this->db->query('update ' .DB_PREFIX . 'order set collivery_town="'. $this->db->escape($address_data['town_id']). '", collivery_suburb="'. $this->db->escape($address_data['suburb_id']). '", collivery_location_type="'. $this->db->escape($address_data['location_type']). '", collivery_to_address_id="' . $this->db->escape($address_id) .'", collivery_to_contact_id="' . $this->db->escape($contact_id) . '" where order_id="' . $this->db->escape($order_object->order_id) . '"');
+        }
+
+        if($this->config->get('shipping_mds_auto_create_waybill') == 1){
+            $this->acceptAndCreateWaybill($order_id);
+        }
+        else
+        {
+            $data = $this->db->query("select * from " . DB_PREFIX . "order where order_id='" . $this->db->escape($order_id) . "'")->row;
+
+            $waybill_id = null;
+            $waybill_status = '';
+            $response['delivery_date'] = 'N/A';
+            $response['waybill_status'] = 'N/A';
+            if(is_array($waybill_status)){
+                if(array_key_exists('status_text', $waybill_status)){
+                    $response['waybill_status'] = $waybill_status['status_text'];
+                }
+                if(array_key_exists('delivery_date', $waybill_status)){
+                    $response['delivery_date'] = $waybill_status['delivery_date'];
+                }
+            }
+            $response['waybill_id'] = $waybill_id;
+            $response['waybill_service'] = $data['shipping_method'];
+            $response['collivery_from'] = $this->collivery->getAddress($data['collivery_from_address_id'])['nice_address'];
+            $response['collivery_to'] = $this->collivery->getAddress($data['collivery_to_address_id'])['nice_address'];
+
+            $this->response->addHeader('Content-Type: application/json');
+            $this->response->setOutput(json_encode($response));
+        }
+    }
+}
+
+public function changeFromAddress(){
+    $order_id = $this->request->get['order_id'];
+    $address_id = $this->request->get['address_id'];
+    $contact_id = current($this->collivery->getContacts($address_id))['contact_id'];
+    $this->db->query('update ' .DB_PREFIX . "order set `collivery_from_address_id`='". $this->db->escape($address_id)."', `collivery_from_contact_id`='" . $this->db->escape($contact_id) . "' where order_id='" . $this->db->escape($order_id) . "'");
+    $this->acceptAndCreateWaybill($order_id);
+}
+
+public function acceptAndCreateWaybill($order_id)
+{
+    $data = $this->db->query("select * from " . DB_PREFIX . "order where order_id='".$this->db->escape($order_id)."'")->row;
+    if($data['collivery_from_address_id'] && $data['collivery_to_address_id']){ //if waybill is not created
+        $data_object = (object) $data;
+        $quote['parcels'] = [];
+        $quote['collivery_from'] = $data_object->collivery_from_address_id;
+        $quote['contact_from'] = $data_object->collivery_from_contact_id;
+        $this->load->model('sale/order');
+        $this->load->model('catalog/product');
+        $order_products = $this->model_sale_order->getOrderProducts($data['order_id']);
+        foreach ($order_products as $key => $order_product){
+            $product_model = (object) $order_product;
+            $product = (object) $this->model_catalog_product->getProduct($product_model->product_id);
+            $quote['parcels'][$key]['width'] = $product->width;
+            $quote['parcels'][$key]['height'] = $product->height;
+            $quote['parcels'][$key]['length'] = $product->length;
+            $quote['parcels'][$key]['weight'] = $product->weight;
+        }
+        list(1 => $service_type_id) = explode('.', $data['shipping_code']);
+        $quote['collivery_to'] = $data_object->collivery_to_address_id;
+        $quote['contact_to'] = $data_object->collivery_to_contact_id;
+        $quote['service'] = $service_type_id;
+        $quote['collivery_type'] = 2; //package
+        $quote['cover'] = $this->config->get('shipping_mds_cover');
+        $quote['rica'] = $this->config->get('shipping_mds_rica');
+        $validated_collivery_data = $this->collivery->validate($quote);
+        if($validated_collivery_data){
+            $data['quote_data'] = $validated_collivery_data;
+            $check = $this->db->query('select waybill_id from ' .DB_PREFIX . 'order where order_id="' . $this->db->escape($data_object->order_id) . '"')->row['waybill_id'];
+            if(!$check) {
+                try {
+                    $waybill_id = $this->collivery->addCollivery($validated_collivery_data);
+                    $this->db->query('update ' .DB_PREFIX . "order set `collivery_price_data`='". json_encode($validated_collivery_data)."', waybill_id='" . $this->db->escape($waybill_id) . "' where order_id='" . $this->db->escape($data_object->order_id) . "'");
+                    if($this->config->get('shipping_mds_auto_accept_waybill')==1){
+                        $this->collivery->acceptCollivery($waybill_id);
                     }
-
+                } catch (\Mds\ColliveryException $e) {
                     $this->response->addHeader($this->request->server['SERVER_PROTOCOL'] . '/1.1 400 Bad Request');
                     $this->response->addHeader('Content-Type: application/json');
-                    $this->response->setOutput(json_encode(['errors' => $output]));
+                    $this->response->setOutput(json_encode(['errors' => $e->getMessage()]));
 
                     return;
                 }
-
-                list('address_id' => $address_id, 'contact_id' => $contact_id) = $results;
-                $this->db->query('update ' .DB_PREFIX . 'order set collivery_town="'. $this->db->escape($address_data['town_id']). '", collivery_suburb="'. $this->db->escape($address_data['suburb_id']). '", collivery_location_type="'. $this->db->escape($address_data['location_type']). '", collivery_to_address_id="' . $this->db->escape($address_id) .'", collivery_to_contact_id="' . $this->db->escape($contact_id) . '" where order_id="' . $this->db->escape($order_object->order_id) . '"');
             }
-            $this->acceptAndCreateWaybill($order_id);
         }
     }
 
-    public function acceptAndCreateWaybill($order_id)
-    {
-        $data = $this->db->query("select * from " . DB_PREFIX . "order where order_id='".$this->db->escape($order_id)."'")->row;
-        if($data['collivery_from_address_id'] && $data['collivery_to_address_id']){ //if waybill is not created
-            $data_object = (object) $data;
-            $quote['parcels'] = [];
-            $quote['collivery_from'] = $data_object->collivery_from_address_id;
-            $quote['contact_from'] = $data_object->collivery_from_contact_id;
-            $this->load->model('sale/order');
-            $this->load->model('catalog/product');
-            $order_products = $this->model_sale_order->getOrderProducts($data['order_id']);
-            foreach ($order_products as $key => $order_product){
-                $product_model = (object) $order_product;
-                $product = (object) $this->model_catalog_product->getProduct($product_model->product_id);
-                $quote['parcels'][$key]['width'] = $product->width;
-                $quote['parcels'][$key]['height'] = $product->height;
-                $quote['parcels'][$key]['length'] = $product->length;
-                $quote['parcels'][$key]['weight'] = $product->weight;
-            }
-            list(1 => $service_type_id) = explode('.', $data['shipping_code']);
-            $quote['collivery_to'] = $data_object->collivery_to_address_id;
-            $quote['contact_to'] = $data_object->collivery_to_contact_id;
-            $quote['service'] = $service_type_id;
-            $quote['collivery_type'] = 2; //package
-            $quote['cover'] = $this->config->get('shipping_mds_cover');
-            $quote['rica'] = $this->config->get('shipping_mds_rica');
-            $validated_collivery_data = $this->collivery->validate($quote);
-            if($validated_collivery_data){
-                $data['quote_data'] = $validated_collivery_data;
-                $check = $this->db->query('select waybill_id from ' .DB_PREFIX . 'order where order_id="' . $this->db->escape($data_object->order_id) . '"')->row['waybill_id'];
-                if(!$check) {
-                    try {
-                        $waybill_id = $this->collivery->addCollivery($validated_collivery_data);
-                        $this->db->query('update ' .DB_PREFIX . "order set `collivery_price_data`='". json_encode($validated_collivery_data)."', waybill_id='" . $this->db->escape($waybill_id) . "' where order_id='" . $this->db->escape($data_object->order_id) . "'");
-                        if($this->config->get('shipping_mds_auto_accept_waybill')){
-                            $this->collivery->acceptCollivery($waybill_id);
-                        }
-                    } catch (\Mds\ColliveryException $e) {
-                        $this->response->addHeader($this->request->server['SERVER_PROTOCOL'] . '/1.1 400 Bad Request');
-                        $this->response->addHeader('Content-Type: application/json');
-                        $this->response->setOutput(json_encode(['errors' => $e->getMessage()]));
+    $data = $this->db->query("select * from " . DB_PREFIX . "order where order_id='" . $this->db->escape($order_id) . "'")->row;
 
-                        return;
-                    }
-                }
-            }
+    $waybill_id = $data['waybill_id'];
+    $waybill_status = $this->collivery->getColliveryStatus($waybill_id);
+    $response['delivery_date'] = 'N/A';
+    $response['waybill_status'] = 'N/A';
+    if(is_array($waybill_status)){
+        if(array_key_exists('status_text', $waybill_status)){
+            $response['waybill_status'] = $waybill_status['status_text'];
         }
-
-        $data = $this->db->query("select * from " . DB_PREFIX . "order where order_id='" . $this->db->escape($order_id) . "'")->row;
-
-        $waybill_id = $data['waybill_id'];
-        $waybill_status = $this->collivery->getColliveryStatus($waybill_id);
-        $response['delivery_date'] = 'N/A';
-        $response['waybill_status'] = 'N/A';
-        if(is_array($waybill_status)){
-            if(array_key_exists('status_text', $waybill_status)){
-                $response['waybill_status'] = $waybill_status['status_text'];
-            }
-            if(array_key_exists('delivery_date', $waybill_status)){
-                $response['delivery_date'] = $waybill_status['delivery_date'];
-            }
+        if(array_key_exists('delivery_date', $waybill_status)){
+            $response['delivery_date'] = $waybill_status['delivery_date'];
         }
-        $response['waybill_id'] = $waybill_id;
-        $response['waybill_service'] = $data['shipping_method'];
-        $response['collivery_from'] = $this->collivery->getAddress($data['collivery_from_address_id'])['nice_address'];
-        $response['collivery_to'] = $this->collivery->getAddress($data['collivery_to_address_id'])['nice_address'];
-
-        $this->response->addHeader('Content-Type: application/json');
-        $this->response->setOutput(json_encode($response));
     }
+    $response['waybill_id'] = $waybill_id;
+    $response['waybill_service'] = $data['shipping_method'];
+    $response['collivery_from'] = $this->collivery->getAddress($data['collivery_from_address_id'])['nice_address'];
+    $response['collivery_to'] = $this->collivery->getAddress($data['collivery_to_address_id'])['nice_address'];
+
+    $this->response->addHeader('Content-Type: application/json');
+    $this->response->setOutput(json_encode($response));
+}
 
                 ]]>
             </add>
@@ -323,7 +358,11 @@
         $location_types = $this->collivery->getLocationTypes();
         $towns = $this->collivery->getTowns();
         $suburbs = $this->collivery->getAllSuburbs();
+
         if($data['is_mds']){
+
+            $data['collivery_addresses']  = $this->collivery->getAddresses();
+            $data['default_address_id'] = $this->config->get('shipping_mds_default_address_id');
 
             $data['collivery_services'] = $this->collivery->getServices();
 
@@ -331,6 +370,10 @@
 
             foreach ($order as $column => $column_value){
                 $data[$column] = $column_value;
+            }
+
+            if($data['collivery_from_address_id']){
+            $data['default_address_id'] = $data['collivery_from_address_id'];
             }
 
             if(!$data['collivery_from_address_id']){
@@ -543,10 +586,10 @@
                 <![CDATA[if ($custom_field['location'] == 'address') {]]>
             </search>
             <add position="before">
-            <![CDATA[
+                <![CDATA[
                 //if($custom_field['name'] == 'Town' || $custom_field['name'] == 'Suburb' || $custom_field['name'] == 'Location Type')continue;
             ]]>
-        </add>
+            </add>
         </operation>
     </file>
     <file path="catalog/controller/checkout/shipping_address.php">
@@ -706,8 +749,8 @@
                 <![CDATA['order_id'                => $order_query->row['order_id'],]]>
             </search>
             <add position="replace">
-                'order_id'                => $order_query->row['order_id'],
-                'waybill_id'                => $order_query->row['waybill_id'],
+                'order_id' => $order_query->row['order_id'],
+                'waybill_id' => $order_query->row['waybill_id'],
             </add>
         </operation>
     </file>
@@ -738,9 +781,8 @@
             </search>
             <add position="replace">
                 <![CDATA[
-
                 var url = (new URL(window.location.href));
-var user_token = user_token || url.searchParams.get('user_token');
+                var user_token = user_token || url.searchParams.get('user_token');
                 var colliveryElements = $(document)
                   .find('[name="shipping_collivery_town"], [name="shipping_collivery_suburb"], [name="shipping_collivery_location_type"]');
                 var errors = [];
@@ -759,6 +801,7 @@ var user_token = user_token || url.searchParams.get('user_token');
                   })
                   .done(function (response) {
                     var waybill_id = response.waybill_id;
+                    if(waybill_id){
                     var waybill_service = response.waybill_service;
                     var collivery_from = response.collivery_from;
                     var collivery_to = response.collivery_to;
@@ -800,6 +843,7 @@ var user_token = user_token || url.searchParams.get('user_token');
                         '  </div>' +
                         '</div>';
                     $(document).find('#sub-tab-mds').html(html);
+                    }
                   })
                   .fail(function(jqXHR, textStatus, errorThrown ) {
                     console.error(jqXHR, textStatus, errorThrown);
@@ -897,7 +941,17 @@ var user_token = user_token || url.searchParams.get('user_token');
                      {% endif %}
                   </tr>
                   <tr>
-                     <td>{{ collivery_collection_address.nice_address }}</td>
+                     <td>
+                     {% if collivery_addresses is not empty  %}
+                            <select class="form-control" id="shipping_mds_default_address_id" name="shipping_mds_default_address_id">
+                                {% for address_id, address in collivery_addresses %}
+                                    <option {{ address_id == default_address_id ? 'selected' : '' }} value="{{ address_id }}">{{ address.nice_address }}</option>
+                                {% endfor %}
+                            </select>
+                            <br>
+                            <br>
+                            <button class="btn btn-success" id="changeFromAddress">Select Address</button>
+                     {% else %}   {{ collivery_collection_address.nice_address }}</td>{% endif %}
                      {% if collivery_delivery_address is not empty %}
                      <td>{{ collivery_delivery_address.nice_address }}</td>
                      {% else %}
@@ -1218,6 +1272,70 @@ var user_token = user_token || url.searchParams.get('user_token');
                         window.location.reload(true);
                       })
                       .fail(function(jqXHR, textStatus, errorThrown ) {
+                        console.error(jqXHR, textStatus, errorThrown);
+
+                        // The web server (apache, haproxy) returned an error page
+                        if (jqXHR.responseText.substr(0,1) === '<') {
+                          alert('Server error, please check error logs');
+                        } else {
+                          var text = JSON.parse(jqXHR.responseText);
+                          alert(text.errors);
+                        }
+                      })
+                    })
+                    .on('click', '#changeFromAddress', function(a){
+                        a.preventDefault();
+                        var address_id =$('#shipping_mds_default_address_id').val();
+                        console.log("changeFromAddress");
+                   var url = 'index.php?route=sale/order/changeFromAddress&user_token='+user_token+'&order_id={{ order_id }}'+'&address_id='+ address_id;
+                  $.ajax({
+                    url : url,
+                    method:'post',
+                    dataType: 'json'
+                  }).done(function(){
+                    var waybill_id = response.waybill_id;
+                    var waybill_service = response.waybill_service;
+                    var collivery_from = response.collivery_from;
+                    var collivery_to = response.collivery_to;
+                    var delivery_date = response.delivery_date;
+                    var html = '<div class="row">' +
+                        '  <div class="col-md-4 text-left">' +
+                        '      <h4>' +
+                        '          Waybill No: ' + waybill_id + ' <b></b>' +
+                        '      </h4>' +
+                        '  </div>' +
+                        '  <div class="col-md-4 text-center">' +
+                        '      <h4>' +
+                        '          Service Type: ' + waybill_service + '<b></b>' +
+                        '      </h4>' +
+                        '  </div>' +
+                        '  <div class="col-md-4 text-right">' +
+                        '      <h4>' +
+                        '          Delivery Date : ' + delivery_date + '<b></b>' +
+                        '      </h4>' +
+                        '    </div>' +
+                        '</div>' +
+                        '<div class="row">' +
+                        '  <div class="col-md-12">' +
+                        '    <table class="table table-bordered">' +
+                        '      <tbody>' +
+                        '        <tr>' +
+                        '          <td colspan="8" class="text-center text-uppercase bg-info">Collivery Information</td>' +
+                        '        </tr>' +
+                        '        <tr>' +
+                        '          <td width="50%" class="text-center"><b>Collection Address</b></td>' +
+                        '          <td width="50%" class="text-center"><b>Delivery Address</b></td>' +
+                        '        </tr>' +
+                        '        <tr>' +
+                        '          <td>' + collivery_from + '</td>' +
+                        '          <td>' + collivery_to + '</td>' +
+                        '        </tr>' +
+                        '      </tbody>' +
+                        '    </table>' +
+                        '  </div>' +
+                        '</div>';
+                    $(document).find('#sub-tab-mds').html(html);
+                      }).fail(function(jqXHR, textStatus, errorThrown ) {
                         console.error(jqXHR, textStatus, errorThrown);
 
                         // The web server (apache, haproxy) returned an error page
